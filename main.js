@@ -155,7 +155,7 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     sendBlocked = true;
     mainWindow.show();
-    if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: 'detach' });
+
     mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
     setTimeout(() => { sendBlocked = false; }, 500);
   });

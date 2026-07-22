@@ -920,17 +920,34 @@ async function quickSaveProfile(){
 
 async function deleteSelectedProfile(){
   const id = $('profileSelect').value;
-  if(!id){ showToast('Select a profile first'); return; }
-  if(!confirm('Delete this profile?')){ $('quickProfileName').focus(); return; }
-  try {
-    await api.deletePreset(id);
-    activeProfileId = null;
-    loadProfileSelect();
-    showToast('Profile deleted');
-  } catch(e) {
-    console.error('Delete profile error:', e);
+  if(!id){ showToast('Select a profile first'); $('quickProfileName').focus(); return; }
+  const btn = document.querySelector('.preset-add[onclick*="deleteSelected"]');
+  if(btn.dataset.confirming === 'true'){
+    btn.dataset.confirming = 'false';
+    btn.textContent = 'Delete Selected';
+    btn.style.color = '';
+    try {
+      await api.deletePreset(id);
+      activeProfileId = null;
+      loadProfileSelect();
+      showToast('Profile deleted');
+    } catch(e) {
+      console.error('Delete profile error:', e);
+    }
+    $('quickProfileName').focus();
+  } else {
+    btn.dataset.confirming = 'true';
+    btn.textContent = 'Click again to confirm delete';
+    btn.style.color = 'var(--danger)';
+    setTimeout(() => {
+      if(btn.dataset.confirming === 'true'){
+        btn.dataset.confirming = 'false';
+        btn.textContent = 'Delete Selected';
+        btn.style.color = '';
+      }
+    }, 3000);
+    $('quickProfileName').focus();
   }
-  setTimeout(() => $('quickProfileName').focus(), 100);
 }
 
 function loadProfileSelect(){
