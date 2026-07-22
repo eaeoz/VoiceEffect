@@ -3,12 +3,33 @@ class VoiceProcessor extends AudioWorkletProcessor {
     super();
     this.activeEffects = {};
     this.processedCount = 0;
+    this.modelActive = false;
+    this.modelBuffer = new Float32Array(0);
+    this.modelFrameSize = 320;
+    this.pendingOutput = null;
+    this.returnBuffer = new Float32Array(0);
+
     this.port.onmessage = (e) => {
-      if (e.data.type === 'effects') this.activeEffects = e.data.effects;
-      if (e.data.type === 'toggle') this.activeEffects[e.data.name] = e.data.params;
-      if (e.data.type === 'set') {
-        if (!this.activeEffects[e.data.name]) this.activeEffects[e.data.name] = { enabled: false, value: 50 };
-        this.activeEffects[e.data.name].value = e.data.value;
+      const msg = e.data;
+      if (msg.type === 'effects') this.activeEffects = msg.effects;
+      if (msg.type === 'toggle') this.activeEffects[msg.name] = msg.params;
+      if (msg.type === 'set') {
+        if (!this.activeEffects[msg.name]) this.activeEffects[msg.name] = { enabled: false, value: 50 };
+        this.activeEffects[msg.name].value = msg.value;
+      }
+      if (msg.type === 'model-loaded') {
+        this.modelActive = true;
+        this.modelFrameSize = msg.frameSize || 320;
+        this.modelBuffer = new Float32Array(0);
+        this.returnBuffer = new Float32Array(0);
+      }
+      if (msg.type === 'model-unloaded') {
+        this.modelActive = false;
+        this.modelBuffer = new Float32Array(0);
+        this.returnBuffer = new Float32Array(0);
+      }
+      if (msg.type === 'model-output') {
+        this.returnBuffer = new Float32Array(msg.audio);
       }
     };
   }
@@ -20,13 +41,29 @@ class VoiceProcessor extends AudioWorkletProcessor {
     const inData = input[0];
     const outData = output[0];
     const len = outData.length;
+
     outData.set(inData);
+
     for (const [name, params] of Object.entries(this.activeEffects)) {
       if (!params || !params.enabled) continue;
       this.applyEffect(name, outData, params.value || 50, len, sampleRate);
     }
+
+    if (this.modelActive) {
+      this.modelBuffer = Float32Array.from([...this.modelBuffer, ...inData]);
+      while (this.modelBuffer.length >= this.modelFrameSize) {
+        const frame = this.modelBuffer.slice(0, this.modelFrameSize);
+        this.modelBuffer = this.modelBuffer.slice(this.modelFrameSize);
+        this.port.postMessage({ type: 'model-input', audio: Array.from(frame) });
+      }
+      if (this.returnBuffer.length >= len) {
+        for (let i = 0; i < len; i++) outData[i] = this.returnBuffer[i];
+        this.returnBuffer = this.returnBuffer.slice(len);
+      }
+    }
+
     this.processedCount++;
-    if (this.processedCount % 50 === 0) {
+    if (this.processedCount % 100 === 0) {
       this.port.postMessage({ type: 'stats', processed: this.processedCount });
     }
     return true;

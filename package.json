@@ -12,6 +12,8 @@
     "build:setup": "npx electron-builder --win nsis --x64 --publish never"
   },
   "dependencies": {
+    "onnxruntime-node": "^1.27.0",
+    "onnxruntime-web": "^1.27.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

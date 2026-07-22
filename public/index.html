@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.github.com; media-src 'self' blob: mediastream:; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.github.com; media-src 'self' blob: mediastream:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VoiceEffect</title>
 <style>
@@ -34,6 +34,33 @@ body{display:flex;flex-direction:column}
 .titlebar-left{display:flex;align-items:center;gap:8px}
 .logo{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:var(--accent)}
 .logo svg{width:20px;height:20px}
+.profile-wrap{position:relative}
+.profile-btn{display:flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--border);
+border-radius:var(--radius-xs);background:transparent;color:var(--text-secondary);font-size:10px;
+cursor:pointer;transition:.15s;max-width:140px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.profile-btn:hover{border-color:var(--accent);color:var(--accent)}
+.profile-btn .pf-name{overflow:hidden;text-overflow:ellipsis}
+.profile-btn .pf-chevron{font-size:8px;margin-left:2px}
+.profile-dd{position:absolute;top:100%;left:0;margin-top:4px;min-width:200px;
+background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);
+box-shadow:var(--shadow);z-index:50;display:none;overflow:hidden}
+.profile-dd.open{display:block}
+.profile-dd-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;
+font-size:11px;color:var(--text-primary);cursor:pointer;transition:.1s}
+.profile-dd-item:hover{background:rgba(124,58,237,0.1)}
+.profile-dd-item.active{color:var(--accent);font-weight:600}
+.profile-dd-del{width:18px;height:18px;border:none;background:transparent;color:var(--danger);
+cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;
+font-size:11px;opacity:0;transition:.15s}
+.profile-dd-item:hover .profile-dd-del{opacity:1}
+.profile-dd-sep{height:1px;background:var(--border);margin:2px 0}
+.profile-dd-save{display:flex;align-items:center;gap:4px;padding:4px 6px}
+.profile-dd-save input{flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);
+background:var(--bg-primary);color:var(--text-primary);font-size:11px;outline:none;min-width:0}
+.profile-dd-save input:focus{border-color:var(--accent)}
+.profile-dd-save button{padding:4px 8px;border:none;border-radius:var(--radius-xs);
+background:var(--accent);color:#fff;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap}
+.profile-dd-save button:hover{background:#6d28d9}
 .titlebar-center{font-size:11px;color:var(--text-secondary)}
 .titlebar-right{display:flex;gap:2px;-webkit-app-region:no-drag}
 .tb-btn{width:32px;height:26px;border:none;background:transparent;color:var(--text-secondary);
@@ -90,25 +117,29 @@ padding:12px;display:flex;flex-direction:column;backdrop-filter:blur(20px);min-h
 border-radius:var(--radius-xs);font-size:10px;cursor:pointer;transition:.2s}
 .panel-btn:hover{border-color:var(--accent);color:var(--accent)}
 .panel-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.panel-btn-accent{border-color:var(--accent);color:var(--accent)}
+.panel-btn-accent:hover{background:var(--accent);color:#fff}
 
-.effects-grid{display:flex;flex-wrap:wrap;gap:8px;overflow-y:auto;flex:1;padding:2px}
-.effect-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-padding:10px 8px;border-radius:var(--radius-sm);border:1.5px solid var(--border);
-background:var(--glass);cursor:pointer;transition:all .2s ease;min-width:80px;min-height:64px;position:relative;flex:1 1 80px;max-width:120px}
-.effect-btn:hover{border-color:var(--accent);background:rgba(124,58,237,0.08);transform:translateY(-2px);
-box-shadow:0 4px 16px rgba(124,58,237,0.15)}
-.effect-btn.active{border-color:var(--accent);background:linear-gradient(135deg,rgba(124,58,237,0.2),rgba(6,182,212,0.1));
-box-shadow:0 0 20px var(--accent-glow)}
-.effect-btn.active::after{content:'';position:absolute;top:4px;right:4px;width:6px;height:6px;
-border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
-.effect-icon{font-size:18px;line-height:1}
-.effect-name{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-secondary);text-align:center;line-height:1.1}
-.effect-btn.active .effect-name{color:var(--accent)}
-.effect-slider-row{width:100%;margin-top:2px;display:none}
-.effect-btn.active .effect-slider-row{display:block}
-.effect-slider{width:100%;height:3px;-webkit-appearance:none;background:var(--border);border-radius:2px;outline:none}
-.effect-slider::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;
-background:var(--accent);cursor:pointer;box-shadow:0 0 6px var(--accent-glow)}
+.effects-scroll{overflow-y:auto;flex:1;padding:2px;min-height:0}
+.fx-group{margin-bottom:6px}
+.fx-group-header{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;
+color:var(--accent);padding:4px 6px 2px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.fx-row{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:var(--radius-xs);
+transition:background .15s;min-height:28px}
+.fx-row:hover{background:rgba(124,58,237,0.06)}
+.fx-toggle{width:28px;height:16px;border-radius:8px;border:1.5px solid var(--border);
+background:var(--bg-secondary);cursor:pointer;position:relative;flex-shrink:0;transition:.2s}
+.fx-toggle::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;
+border-radius:50%;background:var(--text-secondary);transition:.2s}
+.fx-toggle.on{border-color:var(--accent);background:rgba(124,58,237,0.3)}
+.fx-toggle.on::after{left:14px;background:var(--accent);box-shadow:0 0 6px var(--accent-glow)}
+.fx-icon{font-size:13px;width:20px;text-align:center;flex-shrink:0}
+.fx-name{font-size:10px;font-weight:600;color:var(--text-secondary);min-width:52px;flex-shrink:0}
+.fx-row.active .fx-name{color:var(--accent)}
+.fx-slider{-webkit-appearance:none;flex:1;height:3px;background:var(--border);border-radius:2px;outline:none;min-width:0}
+.fx-slider::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;
+background:var(--accent);cursor:pointer;box-shadow:0 0 4px var(--accent-glow)}
+.fx-val{font-size:9px;color:var(--accent);font-weight:600;width:26px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
 
 .side-panel{width:240px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
 .side-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
@@ -200,6 +231,10 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
 [data-theme="light"] .power-btn{background:#fff}
 [data-theme="light"] .volume-slider::-webkit-slider-thumb{background:var(--accent)}
 [data-theme="light"] .device-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666688' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+[data-theme="light"] .fx-toggle{background:#e8e8f0}
+[data-theme="light"] .fx-toggle::after{background:#8888aa}
+[data-theme="light"] .profile-btn{color:#666688}
+[data-theme="light"] .profile-dd{background:#fff}
 </style>
 </head>
 <body>
@@ -209,7 +244,20 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
       VoiceEffect
     </div>
-    <span style="font-size:10px;color:var(--text-secondary)">v1.0.0</span>
+    <div class="profile-wrap">
+      <button class="profile-btn" onclick="toggleProfileDD()">
+        <span class="pf-name" id="pfName">No Profile</span>
+        <span class="pf-chevron">&#9660;</span>
+      </button>
+      <div class="profile-dd" id="profileDD">
+        <div id="pfList"></div>
+        <div class="profile-dd-sep"></div>
+        <div class="profile-dd-save">
+          <input type="text" id="pfSaveName" placeholder="Profile name...">
+          <button onclick="saveProfile()">Save</button>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="titlebar-center">Real-Time Voice Processor</div>
   <div class="titlebar-right">
@@ -261,10 +309,11 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
         <div class="panel-title">Voice Effects</div>
         <div class="panel-actions">
           <button class="panel-btn" onclick="disableAllEffects()">Disable All</button>
-          <button class="panel-btn" onclick="openPresets()">Presets</button>
+          <button class="panel-btn panel-btn-accent" onclick="openProfilesModal()" title="Load a saved profile">&#128194; Load</button>
+          <button class="panel-btn panel-btn-accent" onclick="quickSaveProfile()" title="Save current settings as a profile">&#128190; Save</button>
         </div>
       </div>
-      <div class="effects-grid" id="effectsGrid"></div>
+      <div class="effects-scroll" id="effectsScroll"></div>
     </div>
 
     <div class="side-panel">
@@ -346,14 +395,20 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
   </div>
 </div>
 
-<div class="modal-overlay" id="presetsModal">
+<div class="modal-overlay" id="profileModal">
   <div class="modal" style="position:relative">
-    <button class="modal-close" onclick="closeModal('presetsModal')">&#10005;</button>
-    <div class="modal-title">Presets</div>
-    <div id="presetsList" style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px"></div>
-    <div style="display:flex;gap:8px">
-      <input type="text" class="form-input" id="presetNameInput" placeholder="Preset name..." style="flex:1">
-      <button class="btn btn-primary" onclick="saveCurrentPreset()">Save Current</button>
+    <button class="modal-close" onclick="closeModal('profileModal')">&#10005;</button>
+    <div class="modal-title">Profiles</div>
+    <div class="form-group">
+      <label class="form-label">Save Current Settings</label>
+      <div style="display:flex;gap:6px">
+        <input type="text" class="form-input" id="modalProfileName" placeholder="Profile name...">
+        <button class="btn btn-primary" onclick="quickSaveFromModal()">Save</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Saved Profiles</label>
+      <div id="modalProfileList" style="max-height:200px;overflow-y:auto"></div>
     </div>
   </div>
 </div>
@@ -375,31 +430,33 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
 
 <div class="toast" id="toast"></div>
 
+<script src="../node_modules/onnxruntime-web/dist/ort.min.js"></script>
+<script src="model-inference.js"></script>
 <script>
 const EFFECTS = [
-  {id:'pitchShift',name:'Pitch',icon:'&#9835;',group:'voice'},
-  {id:'formantShift',name:'Formant',icon:'&#9834;',group:'voice'},
-  {id:'reverb',name:'Reverb',icon:'&#9836;',group:'space'},
-  {id:'echo',name:'Echo',icon:'&#128266;',group:'space'},
-  {id:'chorus',name:'Chorus',icon:'&#127926;',group:'modulation'},
-  {id:'compressor',name:'Comp',icon:'&#8597;',group:'dynamics'},
-  {id:'limiter',name:'Limiter',icon:'&#9888;',group:'dynamics'},
-  {id:'equalizer',name:'EQ',icon:'&#9837;',group:'tone'},
-  {id:'bassBoost',name:'Bass',icon:'&#127925;',group:'tone'},
-  {id:'trebleBoost',name:'Treble',icon:'&#127927;',group:'tone'},
-  {id:'distortion',name:'Distort',icon:'&#9889;',group:'creative'},
-  {id:'radio',name:'Radio',icon:'&#128225;',group:'creative'},
-  {id:'telephone',name:'Phone',icon:'&#128222;',group:'creative'},
-  {id:'robot',name:'Robot',icon:'&#129302;',group:'creative'},
-  {id:'alien',name:'Alien',icon:'&#128125;',group:'creative'},
-  {id:'monster',name:'Monster',icon:'&#128025;',group:'creative'},
-  {id:'childVoice',name:'Child',icon:'&#128118;',group:'creative'},
-  {id:'deepVoice',name:'Deep',icon:'&#128128;',group:'creative'},
-  {id:'chipmunk',name:'Chipmunk',icon:'&#128057;',group:'creative'},
-  {id:'hall',name:'Hall',icon:'&#127963;',group:'space'},
-  {id:'cave',name:'Cave',icon:'&#9968;',group:'space'},
-  {id:'stadium',name:'Stadium',icon:'&#9917;',group:'space'},
-  {id:'autoTune',name:'AutoTune',icon:'&#127908;',group:'modulation'}
+  {id:'pitchShift',name:'Pitch',icon:'&#9835;',group:'Voice'},
+  {id:'formantShift',name:'Formant',icon:'&#9834;',group:'Voice'},
+  {id:'compressor',name:'Comp',icon:'&#8597;',group:'Dynamics'},
+  {id:'limiter',name:'Limiter',icon:'&#9888;',group:'Dynamics'},
+  {id:'equalizer',name:'EQ',icon:'&#9837;',group:'Tone'},
+  {id:'bassBoost',name:'Bass',icon:'&#127925;',group:'Tone'},
+  {id:'trebleBoost',name:'Treble',icon:'&#127927;',group:'Tone'},
+  {id:'reverb',name:'Reverb',icon:'&#9836;',group:'Space'},
+  {id:'echo',name:'Echo',icon:'&#128266;',group:'Space'},
+  {id:'hall',name:'Hall',icon:'&#127963;',group:'Space'},
+  {id:'cave',name:'Cave',icon:'&#9968;',group:'Space'},
+  {id:'stadium',name:'Stadium',icon:'&#9917;',group:'Space'},
+  {id:'chorus',name:'Chorus',icon:'&#127926;',group:'Modulation'},
+  {id:'autoTune',name:'AutoTune',icon:'&#127908;',group:'Modulation'},
+  {id:'distortion',name:'Distort',icon:'&#9889;',group:'Creative'},
+  {id:'radio',name:'Radio',icon:'&#128225;',group:'Creative'},
+  {id:'telephone',name:'Phone',icon:'&#128222;',group:'Creative'},
+  {id:'robot',name:'Robot',icon:'&#129302;',group:'Creative'},
+  {id:'alien',name:'Alien',icon:'&#128125;',group:'Creative'},
+  {id:'monster',name:'Monster',icon:'&#128025;',group:'Creative'},
+  {id:'childVoice',name:'Child',icon:'&#128118;',group:'Creative'},
+  {id:'deepVoice',name:'Deep',icon:'&#128128;',group:'Creative'},
+  {id:'chipmunk',name:'Chipmunk',icon:'&#128057;',group:'Creative'}
 ];
 
 let state = {
@@ -411,6 +468,7 @@ let audioCtx = null, micStream = null, micSource = null;
 let inputGain = null, outputGain = null, analyserIn = null, analyserOut = null;
 let workletNode = null, meterRAF = null;
 let processedCount = 0, startTime = 0;
+let modelInference = null;
 
 function $(id){return document.getElementById(id)}
 
@@ -437,34 +495,45 @@ function toggleTheme(){
 }
 
 function renderEffectsGrid(){
-  const grid = $('effectsGrid');
-  grid.innerHTML = '';
+  const container = $('effectsScroll');
+  container.innerHTML = '';
+  const groups = {};
   EFFECTS.forEach(fx => {
-    const el = document.createElement('div');
-    el.className = 'effect-btn';
-    el.id = 'fx-' + fx.id;
-    el.innerHTML = `
-      <div class="effect-icon">${fx.icon}</div>
-      <div class="effect-name">${fx.name}</div>
-      <div class="effect-slider-row">
-        <input type="range" class="effect-slider" min="0" max="100" value="50"
-          oninput="event.stopPropagation();setEffectValue('${fx.id}',this.value)"
-          onclick="event.stopPropagation()">
-      </div>
-    `;
-    el.onclick = () => toggleEffect(fx.id);
-    grid.appendChild(el);
+    if(!groups[fx.group]) groups[fx.group] = [];
+    groups[fx.group].push(fx);
+  });
+  Object.entries(groups).forEach(([groupName, effects]) => {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'fx-group';
+    groupEl.innerHTML = `<div class="fx-group-header">${groupName}</div>`;
+    effects.forEach(fx => {
+      const row = document.createElement('div');
+      row.className = 'fx-row';
+      row.id = 'fx-' + fx.id;
+      row.innerHTML = `
+        <div class="fx-toggle" onclick="toggleEffect('${fx.id}')"></div>
+        <div class="fx-icon">${fx.icon}</div>
+        <div class="fx-name">${fx.name}</div>
+        <input type="range" class="fx-slider" min="0" max="100" value="50"
+          oninput="setEffectValue('${fx.id}',this.value);this.nextElementSibling.textContent=this.value+'%'">
+        <div class="fx-val">50%</div>
+      `;
+      groupEl.appendChild(row);
+    });
+    container.appendChild(groupEl);
   });
 }
 
 function toggleEffect(id){
-  const btn = $('fx-'+id);
-  const active = btn.classList.toggle('active');
+  const row = $('fx-'+id);
+  if(!row) return;
+  const toggle = row.querySelector('.fx-toggle');
+  const active = toggle.classList.toggle('on');
+  row.classList.toggle('active', active);
   if(!state.activeEffects[id]) state.activeEffects[id] = { enabled: false, value: 50 };
   state.activeEffects[id].enabled = active;
   if(api) api.toggleEffect(id, active);
   if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: id, params: state.activeEffects[id] });
-  if(active) showToast(`${EFFECTS.find(e=>e.id===id)?.name || id} enabled`);
 }
 
 function setEffectValue(id, val){
@@ -472,13 +541,30 @@ function setEffectValue(id, val){
   state.activeEffects[id].value = parseInt(val);
   if(api) api.setEffect(id, {value: parseInt(val)});
   if(workletNode) workletNode.port.postMessage({ type: 'set', name: id, value: parseInt(val) });
+  const row = $('fx-'+id);
+  if(row) {
+    const toggle = row.querySelector('.fx-toggle');
+    if(toggle && !toggle.classList.contains('on')) {
+      toggleEffect(id);
+    }
+    const valEl = row.querySelector('.fx-val');
+    if(valEl) valEl.textContent = val + '%';
+  }
 }
 
 function disableAllEffects(){
   Object.keys(state.activeEffects).forEach(id => {
-    const btn = $('fx-'+id);
-    if(btn) btn.classList.remove('active');
-    state.activeEffects[id].enabled = false;
+    const row = $('fx-'+id);
+    if(row) {
+      row.classList.remove('active');
+      const t = row.querySelector('.fx-toggle');
+      if(t) t.classList.remove('on');
+      const slider = row.querySelector('.fx-slider');
+      if(slider) slider.value = 50;
+      const val = row.querySelector('.fx-val');
+      if(val) val.textContent = '50%';
+    }
+    state.activeEffects[id] = { enabled: false, value: 50 };
     if(api) api.toggleEffect(id, false);
     if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: id, params: state.activeEffects[id] });
   });
@@ -628,6 +714,12 @@ async function startAudio(){
     workletNode = new AudioWorkletNode(audioCtx, 'voice-processor');
     workletNode.port.onmessage = (e) => {
       if(e.data.type === 'stats') processedCount = e.data.processed;
+      if(e.data.type === 'model-input' && modelInference && modelInference.modelLoaded) {
+        const inputData = new Float32Array(e.data.audio);
+        modelInference.process(inputData).then(outputData => {
+          workletNode.port.postMessage({ type: 'model-output', audio: Array.from(outputData) });
+        });
+      }
     };
     const activeFx = {};
     Object.entries(state.activeEffects).forEach(([id, params]) => {
@@ -656,10 +748,11 @@ async function startAudio(){
 
 function stopAudio(){
   if(micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  if(workletNode) { workletNode.disconnect(); workletNode = null; }
+  if(workletNode) { workletNode.port.postMessage({ type: 'model-unloaded' }); workletNode.disconnect(); workletNode = null; }
   if(micSource) { micSource.disconnect(); micSource = null; }
   if(audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; }
   if(meterRAF) { cancelAnimationFrame(meterRAF); meterRAF = null; }
+  if(modelInference) { modelInference.unloadModel(); modelInference = null; }
   inputGain = null; outputGain = null; analyserIn = null; analyserOut = null;
 }
 
@@ -713,11 +806,17 @@ async function loadSettings(){
     if(s.effects) {
       Object.entries(s.effects).forEach(([id, params]) => {
         if(params.enabled) {
-          const btn = $('fx-'+id);
-          if(btn) btn.classList.add('active');
+          const row = $('fx-'+id);
+          if(row) {
+            row.classList.add('active');
+            const t = row.querySelector('.fx-toggle');
+            if(t) t.classList.add('on');
+            const slider = row.querySelector('.fx-slider');
+            if(slider) slider.value = params.value || 50;
+            const val = row.querySelector('.fx-val');
+            if(val) val.textContent = (params.value || 50) + '%';
+          }
           state.activeEffects[id] = params;
-          const slider = btn?.querySelector('.effect-slider');
-          if(slider) slider.value = params.value || 50;
         }
       });
     }
@@ -801,6 +900,16 @@ async function loadModel(id){
     state.settings.activeModel = id;
     loadModels();
     showToast('Model loaded');
+    if(!modelInference) modelInference = new ModelInference();
+    const modelType = id.includes('gtcrn') ? 'gtcrn' : 'deepfilternet';
+    const basePath = '../models/';
+    const modelPath = id.includes('gtcrn') ? basePath + 'gtcrn_simple.onnx' : basePath + 'deepfilternet3_enc.onnx';
+    if(audioCtx) modelInference.inputSampleRate = audioCtx.sampleRate;
+    const ok = await modelInference.loadModel(modelPath, modelType);
+    if(ok && workletNode) {
+      workletNode.port.postMessage({ type: 'model-loaded', frameSize: modelInference.frameSize });
+      showToast('Model inference active: ' + modelType);
+    }
   } else {
     showToast('Model load failed: ' + (r?.error||''));
   }
@@ -828,45 +937,62 @@ async function saveModelMeta(){
   showToast('Model info saved');
 }
 
-async function loadPresets(){
-  try {
-    const presets = await api.getPresets();
-    const list = $('presetsList');
+let activeProfileId = null;
+
+function quickSaveProfile(){
+  const name = prompt('Profile name:');
+  if(!name) return;
+  const preset = { name, effects: {...state.activeEffects}, date: new Date().toISOString() };
+  api.savePreset(preset).then(r => {
+    if(r?.success){
+      activeProfileId = r.id || null;
+      $('pfName').textContent = name;
+      showToast('Profile saved: ' + name);
+    }
+  });
+}
+
+function openProfilesModal(){
+  $('modalProfileName').value = '';
+  loadModalProfileList();
+  $('profileModal').classList.add('show');
+}
+
+function quickSaveFromModal(){
+  const name = $('modalProfileName').value.trim();
+  if(!name){ showToast('Enter a name'); return; }
+  const preset = { name, effects: {...state.activeEffects}, date: new Date().toISOString() };
+  api.savePreset(preset).then(r => {
+    if(r?.success){
+      activeProfileId = r.id || null;
+      $('pfName').textContent = name;
+      loadModalProfileList();
+      showToast('Profile saved: ' + name);
+    }
+  });
+}
+
+function loadModalProfileList(){
+  loadPresets().then(presets => {
+    const list = $('modalProfileList');
     list.innerHTML = '';
     if(presets.length === 0){
-      list.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:12px">No presets saved yet.</div>';
+      list.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:12px">No profiles yet. Adjust effects, then save.</div>';
       return;
     }
     presets.forEach(p => {
       const el = document.createElement('div');
       el.className = 'preset-item';
       el.innerHTML = `
-        <span class="preset-name" onclick="applyPreset('${p.id}')">${p.name || p.id}</span>
-        <button class="preset-del" onclick="event.stopPropagation();deletePreset('${p.id}')">&#10005;</button>
+        <span class="preset-name" onclick="loadProfileFromModal('${p.id}')">${p.name || p.id}</span>
+        <button class="preset-del" onclick="event.stopPropagation();deleteProfileFromModal('${p.id}')">&#10005;</button>
       `;
       list.appendChild(el);
     });
-  } catch(e) {}
+  });
 }
 
-function openPresets(){
-  loadPresets();
-  $('presetsModal').classList.add('show');
-}
-
-async function saveCurrentPreset(){
-  const name = $('presetNameInput').value.trim();
-  if(!name){ showToast('Enter a preset name'); return; }
-  const preset = { name, effects: {...state.activeEffects}, date: new Date().toISOString() };
-  const r = await api.savePreset(preset);
-  if(r?.success){
-    $('presetNameInput').value = '';
-    loadPresets();
-    showToast('Preset saved: ' + name);
-  }
-}
-
-async function applyPreset(id){
+async function loadProfileFromModal(id){
   const presets = await api.getPresets();
   const preset = presets.find(p => p.id === id);
   if(!preset) return;
@@ -874,27 +1000,126 @@ async function applyPreset(id){
   if(preset.effects) {
     Object.entries(preset.effects).forEach(([fxId, params]) => {
       if(params.enabled){
-        const btn = $('fx-'+fxId);
-        if(btn) btn.classList.add('active');
+        const row = $('fx-'+fxId);
+        if(row) {
+          row.classList.add('active');
+          const t = row.querySelector('.fx-toggle');
+          if(t) t.classList.add('on');
+          const slider = row.querySelector('.fx-slider');
+          if(slider) slider.value = params.value || 50;
+          const val = row.querySelector('.fx-val');
+          if(val) val.textContent = (params.value || 50) + '%';
+        }
         state.activeEffects[fxId] = params;
         api.toggleEffect(fxId, true);
         api.setEffect(fxId, params);
         if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: fxId, params });
-        const slider = btn?.querySelector('.effect-slider');
-        if(slider) slider.value = params.value || 50;
       }
     });
   }
-  closeModal('presetsModal');
-  showToast('Preset applied: ' + (preset.name || id));
+  activeProfileId = id;
+  $('pfName').textContent = preset.name || id;
+  closeModal('profileModal');
+  showToast('Loaded: ' + (preset.name || id));
 }
 
-async function deletePreset(id){
-  if(!confirm('Delete this preset?')) return;
+async function deleteProfileFromModal(id){
+  if(!confirm('Delete this profile?')) return;
   await api.deletePreset(id);
-  loadPresets();
-  showToast('Preset deleted');
+  if(activeProfileId === id){ activeProfileId = null; $('pfName').textContent = 'No Profile'; }
+  loadModalProfileList();
+  showToast('Profile deleted');
 }
+
+function toggleProfileDD(){
+  const dd = $('profileDD');
+  const open = dd.classList.toggle('open');
+  if(open) loadProfileList();
+}
+
+function loadProfileList(){
+  loadPresets().then(presets => {
+    const list = $('pfList');
+    list.innerHTML = '';
+    if(presets.length === 0){
+      list.innerHTML = '<div style="font-size:10px;color:var(--text-secondary);text-align:center;padding:8px">No profiles yet</div>';
+      return;
+    }
+    presets.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'profile-dd-item' + (activeProfileId === p.id ? ' active' : '');
+      el.innerHTML = `
+        <span onclick="applyProfile('${p.id}')">${p.name || p.id}</span>
+        <button class="profile-dd-del" onclick="event.stopPropagation();deleteProfile('${p.id}')">&#10005;</button>
+      `;
+      list.appendChild(el);
+    });
+  });
+}
+
+async function saveProfile(){
+  const name = $('pfSaveName').value.trim();
+  if(!name){ showToast('Enter a profile name'); return; }
+  const preset = { name, effects: {...state.activeEffects}, date: new Date().toISOString() };
+  const r = await api.savePreset(preset);
+  if(r?.success){
+    $('pfSaveName').value = '';
+    activeProfileId = r.id || null;
+    $('pfName').textContent = name;
+    loadProfileList();
+    showToast('Profile saved: ' + name);
+  }
+}
+
+async function applyProfile(id){
+  const presets = await api.getPresets();
+  const preset = presets.find(p => p.id === id);
+  if(!preset) return;
+  disableAllEffects();
+  if(preset.effects) {
+    Object.entries(preset.effects).forEach(([fxId, params]) => {
+      if(params.enabled){
+        const row = $('fx-'+fxId);
+        if(row) {
+          row.classList.add('active');
+          const t = row.querySelector('.fx-toggle');
+          if(t) t.classList.add('on');
+          const slider = row.querySelector('.fx-slider');
+          if(slider) slider.value = params.value || 50;
+          const val = row.querySelector('.fx-val');
+          if(val) val.textContent = (params.value || 50) + '%';
+        }
+        state.activeEffects[fxId] = params;
+        api.toggleEffect(fxId, true);
+        api.setEffect(fxId, params);
+        if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: fxId, params });
+      }
+    });
+  }
+  activeProfileId = id;
+  $('pfName').textContent = preset.name || id;
+  $('profileDD').classList.remove('open');
+  showToast('Profile loaded: ' + (preset.name || id));
+}
+
+async function deleteProfile(id){
+  if(!confirm('Delete this profile?')) return;
+  await api.deletePreset(id);
+  if(activeProfileId === id){ activeProfileId = null; $('pfName').textContent = 'No Profile'; }
+  loadProfileList();
+  showToast('Profile deleted');
+}
+
+async function loadPresets(){
+  try {
+    return await api.getPresets();
+  } catch(e) { return []; }
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.profile-wrap');
+  if(wrap && !wrap.contains(e.target)) $('profileDD').classList.remove('open');
+});
 
 function openSettings(){ $('settingsModal').classList.add('show'); }
 function closeModal(id){ $(id).classList.remove('show'); }

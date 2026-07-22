@@ -54,6 +54,8 @@ audio-engine.js   Main process audio state, device enumeration, model management
 public/
   index.html      Renderer UI + all client-side audio processing (AudioWorkletNode)
   voice-processor.js   AudioWorklet - runs effects on a separate thread
+  model-inference.js   ONNX model loader and inference engine (onnxruntime-web)
+  ort-wasm-simd-threaded.wasm  ONNX Runtime WASM backend (12.8MB)
 models/           ONNX model files (.onnx, .bin)
 presets/          Saved preset JSON files
 ```
@@ -61,11 +63,12 @@ presets/          Saved preset JSON files
 ### Audio Pipeline
 
 ```
-Mic Stream -> Input Gain -> Analyser -> AudioWorkletNode -> Output Gain -> Analyser -> Destination
-                                     (voice-processor.js)
+Mic Stream -> Input Gain -> Analyser -> AudioWorkletNode -> [MessagePort] -> Model Inference (ONNX) -> Output Gain -> Analyser -> Destination
+                                     (voice-processor.js)                  (model-inference.js)
+                                     (effects processing)                  (GTCRN/DeepFilterNet)
 ```
 
-Audio processing uses `AudioWorkletNode` which runs on a dedicated audio thread, keeping the UI responsive. Effects are applied per-buffer inside the worklet processor.
+Audio processing uses `AudioWorkletNode` which runs on a dedicated audio thread, keeping the UI responsive. Effects are applied per-buffer inside the worklet processor. When a model is loaded, audio chunks are sent to the main thread for ONNX inference via `onnxruntime-web` (WASM), then the enhanced audio is sent back to the worklet.
 
 ### IPC Channels
 
@@ -94,23 +97,50 @@ Default sample rate: 44100Hz. Default buffer size: 256.
 
 The app supports importing `.onnx` and `.bin` model files through the UI or by placing them in the `models/` directory. Metadata (name, author, version, description) can be edited per model.
 
-### Current Status
+### Included Models
 
-The model loading infrastructure exists but the inference pipeline is not wired up. A loaded model creates an ONNX Runtime session but no audio is fed through it.
+Two popular speech enhancement models are pre-installed:
 
-### Where to Find Voice Models
+**GTCRN (523KB)**
+- Source: [k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (13.6k GitHub stars)
+- Purpose: Real-time speech denoising at 16kHz
+- Architecture: Gated Temporal Convolutional Recurrent Network
+- License: Apache-2.0
+- File: `models/gtcrn_simple.onnx`
 
-**Voice Conversion (RVC)**
-- https://huggingface.co/models?search=rvc+onnx - Pre-trained RVC voice conversion models
-- https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI - Exports `.onnx` voice models
+**DeepFilterNet3 (~8.5MB)**
+- Source: [Rikorose/DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) (4.5k GitHub stars)
+- Purpose: Speech enhancement at 48kHz using deep filtering
+- Architecture: ERB encoder + deep filtering decoder (3 ONNX files)
+- License: MIT / Apache-2.0
+- Files: `models/deepfilternet3_enc.onnx`, `deepfilternet3_erb_dec.onnx`, `deepfilternet3_df_dec.onnx`
 
-**Speech Enhancement / Denoising**
+### How Model Inference Works
+
+1. Load a model from the Models panel (click the play button)
+2. The model runs via `onnxruntime-web` (WASM backend) in the renderer
+3. Audio is routed: Microphone -> Effects (AudioWorklet) -> Model Inference (main thread) -> Output
+4. GTCRN automatically resamples 44100Hz -> 16000Hz for inference
+
+### Adding More Models
+
+Place `.onnx` files in the `models/` directory. Supported types:
+- Speech enhancement/denoising models
+- Voice conversion models (RVC)
+
+**Where to Find Voice Models**
+
+Voice Conversion (RVC):
+- https://huggingface.co/models?search=rvc+onnx
+- https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
+
+Speech Enhancement:
 - https://huggingface.co/models?search=speech+enhancement+onnx
-- DeepFilterNet, Demucs ONNX exports
+- https://github.com/k2-fsa/sherpa-onnx/releases/tag/speech-enhancement-models
 
-**General Sources**
+General Sources:
 - https://huggingface.co/models?library=onnx
-- https://onnxruntime.ai/docs/execution-providers/
+- https://onnxruntime.ai/models/
 
 To make models functional, audio buffers need to be routed through the loaded `InferenceSession` in `audio-engine.js`.
 

@@ -12,3 +12,4 @@ settings.json
 *.onnx
 *.bin
 presets/*.json
+*.wasm

@@ -473,6 +473,8 @@ function setupIPC() {
   });
   ipcMain.handle('close-window', () => { if (mainWindow) mainWindow.close(); });
 
+  ipcMain.handle('get-models-dir', async () => getModelsDir());
+
   ipcMain.handle('open-external', async (event, url) => {
     if (url.startsWith('http')) shell.openExternal(url);
   });

@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('api', {
   saveModelMeta: (id, meta) => ipcRenderer.invoke('save-model-meta', id, meta),
   loadModel: (id) => ipcRenderer.invoke('load-model', id),
   unloadModel: () => ipcRenderer.invoke('unload-model'),
+  getModelsDir: () => ipcRenderer.invoke('get-models-dir'),
 
   // Presets
   getPresets: () => ipcRenderer.invoke('get-presets'),

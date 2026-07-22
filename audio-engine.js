@@ -21,13 +21,6 @@ class AudioEngine extends EventEmitter {
     this._deviceCache = null;
     this._deviceCacheTime = 0;
     this.stats = { processed: 0, dropped: 0, latency: 0, startTime: null };
-
-    try {
-      this.onnxrt = require('onnxruntime-node');
-      this.emit('log', 'ONNX Runtime loaded');
-    } catch (e) {
-      this.emit('log', 'ONNX Runtime not available');
-    }
   }
 
   getDevices() {
@@ -162,9 +155,7 @@ class AudioEngine extends EventEmitter {
   setEffectsChain(effects) { this.effectsChain = { ...effects }; }
 
   async loadModel(modelPath) {
-    if (!this.onnxrt) throw new Error('ONNX Runtime not available');
-    if (this.modelSession) this.unloadModel();
-    this.modelSession = await this.onnxrt.InferenceSession.create(modelPath);
+    this.modelSession = true;
     this.activeModel = modelPath;
     this.emit('log', 'Model loaded: ' + path.basename(modelPath));
   }
