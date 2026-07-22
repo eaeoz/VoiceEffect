@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.github.com; media-src 'self' blob: mediastream:; worker-src 'self' blob:">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoiceEffect</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg-primary:#0a0a1a;--bg-secondary:#12122a;--bg-card:rgba(20,20,50,0.6);
+--bg-card-hover:rgba(30,30,70,0.7);--border:rgba(124,58,237,0.15);
+--border-active:rgba(124,58,237,0.5);--text-primary:#e8e8f0;--text-secondary:#8888aa;
+--accent:#7c3aed;--accent-glow:rgba(124,58,237,0.4);--accent2:#06b6d4;
+--accent2-glow:rgba(6,182,212,0.4);--success:#22c55e;--warning:#f59e0b;
+--danger:#ef4444;--glass:rgba(255,255,255,0.03);--shadow:0 8px 32px rgba(0,0,0,0.3);
+--radius:16px;--radius-sm:10px;--radius-xs:6px;
+}
+[data-theme="light"]{
+--bg-primary:#f0f0f8;--bg-secondary:#e8e8f0;--bg-card:rgba(255,255,255,0.8);
+--bg-card-hover:rgba(240,240,255,0.9);--border:rgba(124,58,237,0.2);
+--text-primary:#1a1a2e;--text-secondary:#666688;
+--glass:rgba(255,255,255,0.5);--shadow:0 8px 32px rgba(0,0,0,0.1);
+}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
+background:var(--bg-primary);color:var(--text-primary);user-select:none}
+body{display:flex;flex-direction:column}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
+
+.titlebar{display:flex;align-items:center;justify-content:space-between;height:36px;padding:0 8px;
+-webkit-app-region:drag;background:rgba(0,0,0,0.2);flex-shrink:0}
+.titlebar-left{display:flex;align-items:center;gap:8px}
+.logo{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:var(--accent)}
+.logo svg{width:20px;height:20px}
+.titlebar-center{font-size:11px;color:var(--text-secondary)}
+.titlebar-right{display:flex;gap:2px;-webkit-app-region:no-drag}
+.tb-btn{width:32px;height:26px;border:none;background:transparent;color:var(--text-secondary);
+cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;transition:.15s}
+.tb-btn:hover{background:rgba(124,58,237,0.2);color:var(--text-primary)}
+.tb-btn.close:hover{background:var(--danger);color:#fff}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:8px 12px 8px 12px;gap:8px}
+
+.top-section{display:flex;gap:10px;align-items:stretch;flex-shrink:0}
+
+.power-panel{display:flex;flex-direction:column;align-items:center;justify-content:center;
+background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+padding:16px 20px;min-width:140px;backdrop-filter:blur(20px)}
+.power-btn{width:80px;height:80px;border-radius:50%;border:3px solid var(--border);
+background:var(--bg-secondary);cursor:pointer;position:relative;display:flex;align-items:center;
+justify-content:center;transition:all .3s ease;flex-shrink:0}
+.power-btn svg{width:32px;height:32px;stroke:var(--text-secondary);transition:all .3s ease}
+.power-btn.active{border-color:var(--success);box-shadow:0 0 30px rgba(34,197,94,0.3),inset 0 0 20px rgba(34,197,94,0.1)}
+.power-btn.active svg{stroke:var(--success)}
+.power-btn:hover.active{border-color:var(--danger);box-shadow:0 0 30px rgba(239,68,68,0.3)}
+.power-btn:hover.active svg{stroke:var(--danger)}
+.power-status{font-size:11px;color:var(--text-secondary);margin-top:8px;letter-spacing:1px;text-transform:uppercase}
+.power-status.active{color:var(--success)}
+.power-pulse{position:absolute;width:100%;height:100%;border-radius:50%;border:2px solid var(--success);
+opacity:0;pointer-events:none}
+.power-btn.active .power-pulse{animation:pulse 2s ease-out infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.5);opacity:0}}
+
+.meters-panel{flex:1;display:flex;gap:10px;align-items:stretch}
+.meter-card{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+padding:12px 14px;display:flex;flex-direction:column;gap:6px;backdrop-filter:blur(20px)}
+.meter-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary);font-weight:600}
+.meter-bar-bg{flex:1;min-height:8px;max-height:16px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;position:relative}
+.meter-bar{height:100%;border-radius:4px;transition:width .08s linear;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%}
+.meter-bar.warn{background:linear-gradient(90deg,var(--warning),var(--danger))}
+.meter-value{font-size:11px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+
+.stats-panel{display:flex;gap:12px;background:var(--bg-card);border:1px solid var(--border);
+border-radius:var(--radius);padding:10px 16px;backdrop-filter:blur(20px);flex-shrink:0}
+.stat{display:flex;flex-direction:column;align-items:center;gap:2px}
+.stat-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary)}
+.stat-value{font-size:13px;font-weight:600;color:var(--text-primary);font-variant-numeric:tabular-nums}
+.stat-value.accent{color:var(--accent)}
+.stat-value.accent2{color:var(--accent2)}
+
+.mid-section{display:flex;gap:10px;flex:1;min-height:0}
+.effects-panel{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+padding:12px;display:flex;flex-direction:column;backdrop-filter:blur(20px);min-height:0}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0}
+.panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary)}
+.panel-actions{display:flex;gap:4px}
+.panel-btn{padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);
+border-radius:var(--radius-xs);font-size:10px;cursor:pointer;transition:.2s}
+.panel-btn:hover{border-color:var(--accent);color:var(--accent)}
+.panel-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.effects-grid{display:flex;flex-wrap:wrap;gap:8px;overflow-y:auto;flex:1;padding:2px}
+.effect-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+padding:10px 8px;border-radius:var(--radius-sm);border:1.5px solid var(--border);
+background:var(--glass);cursor:pointer;transition:all .2s ease;min-width:80px;min-height:64px;position:relative;flex:1 1 80px;max-width:120px}
+.effect-btn:hover{border-color:var(--accent);background:rgba(124,58,237,0.08);transform:translateY(-2px);
+box-shadow:0 4px 16px rgba(124,58,237,0.15)}
+.effect-btn.active{border-color:var(--accent);background:linear-gradient(135deg,rgba(124,58,237,0.2),rgba(6,182,212,0.1));
+box-shadow:0 0 20px var(--accent-glow)}
+.effect-btn.active::after{content:'';position:absolute;top:4px;right:4px;width:6px;height:6px;
+border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.effect-icon{font-size:18px;line-height:1}
+.effect-name{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-secondary);text-align:center;line-height:1.1}
+.effect-btn.active .effect-name{color:var(--accent)}
+.effect-slider-row{width:100%;margin-top:2px;display:none}
+.effect-btn.active .effect-slider-row{display:block}
+.effect-slider{width:100%;height:3px;-webkit-appearance:none;background:var(--border);border-radius:2px;outline:none}
+.effect-slider::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;
+background:var(--accent);cursor:pointer;box-shadow:0 0 6px var(--accent-glow)}
+
+.side-panel{width:240px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.side-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+padding:12px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(20px)}
+.side-card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary);margin-bottom:2px}
+
+.device-select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);
+background:var(--bg-secondary);color:var(--text-primary);font-size:11px;cursor:pointer;outline:none;
+appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+background-repeat:no-repeat;background-position:right 8px center}
+.device-select:focus{border-color:var(--accent)}
+.device-label{font-size:10px;color:var(--text-secondary);margin-bottom:2px}
+
+.volume-row{display:flex;flex-direction:column;gap:3px}
+.volume-header{display:flex;justify-content:space-between;align-items:center}
+.volume-label{font-size:10px;color:var(--text-secondary)}
+.volume-val{font-size:10px;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+.volume-slider{width:100%;height:4px;-webkit-appearance:none;background:linear-gradient(90deg,var(--accent),var(--accent2));
+border-radius:2px;outline:none;opacity:.8;transition:opacity .2s}
+.volume-slider:hover{opacity:1}
+.volume-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+background:#fff;cursor:pointer;box-shadow:0 0 8px rgba(0,0,0,0.3)}
+
+.preset-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;
+border-radius:var(--radius-xs);border:1px solid var(--border);cursor:pointer;transition:.15s;font-size:11px}
+.preset-item:hover{border-color:var(--accent);background:rgba(124,58,237,0.08)}
+.preset-item.active{border-color:var(--accent);background:rgba(124,58,237,0.15)}
+.preset-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preset-del{width:18px;height:18px;border:none;background:transparent;color:var(--danger);
+cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;opacity:0;transition:.15s}
+.preset-item:hover .preset-del{opacity:1}
+.preset-add{width:100%;padding:6px;border:1px dashed var(--border);border-radius:var(--radius-xs);
+background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px;transition:.2s}
+.preset-add:hover{border-color:var(--accent);color:var(--accent)}
+
+.model-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;
+border-radius:var(--radius-xs);border:1px solid var(--border);cursor:pointer;transition:.15s}
+.model-item:hover{border-color:var(--accent2);background:rgba(6,182,212,0.08)}
+.model-item.active{border-color:var(--accent2);background:rgba(6,182,212,0.15)}
+.model-info{flex:1;overflow:hidden}
+.model-name{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.model-meta{font-size:9px;color:var(--text-secondary)}
+.model-actions{display:flex;gap:2px}
+.model-btn{width:20px;height:20px;border:none;background:transparent;cursor:pointer;
+border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;transition:.15s}
+.model-btn.load{color:var(--accent2)}
+.model-btn.delete{color:var(--danger)}
+.model-btn:hover{background:rgba(255,255,255,0.1)}
+
+.bottom-bar{display:flex;gap:8px;align-items:center;flex-shrink:0;padding:4px 0}
+
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);
+backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);
+padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--text-primary)}
+.modal-close{position:absolute;top:12px;right:12px;width:28px;height:28px;border:none;
+background:transparent;color:var(--text-secondary);cursor:pointer;border-radius:4px;font-size:16px}
+.modal-close:hover{color:var(--danger)}
+.form-group{margin-bottom:12px}
+.form-label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;
+color:var(--text-secondary);margin-bottom:4px}
+.form-input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);
+background:var(--bg-primary);color:var(--text-primary);font-size:12px;outline:none}
+.form-input:focus{border-color:var(--accent)}
+.form-row{display:flex;gap:8px}
+.form-row .form-group{flex:1}
+.btn{padding:8px 16px;border:none;border-radius:var(--radius-xs);font-size:12px;font-weight:600;
+cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#6d28d9;box-shadow:0 0 20px var(--accent-glow)}
+.btn-secondary{background:transparent;border:1px solid var(--border);color:var(--text-secondary)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-sm{padding:4px 10px;font-size:10px}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);
+background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);
+padding:10px 20px;font-size:12px;color:var(--text-primary);z-index:200;
+box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s ease;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s ease}
+
+[data-theme="light"] .titlebar{background:rgba(0,0,0,0.05)}
+[data-theme="light"] .power-btn{background:#fff}
+[data-theme="light"] .volume-slider::-webkit-slider-thumb{background:var(--accent)}
+[data-theme="light"] .device-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666688' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+</style>
+</head>
+<body>
+<div class="titlebar">
+  <div class="titlebar-left">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      VoiceEffect
+    </div>
+    <span style="font-size:10px;color:var(--text-secondary)">v1.0.0</span>
+  </div>
+  <div class="titlebar-center">Real-Time Voice Processor</div>
+  <div class="titlebar-right">
+    <button class="tb-btn" onclick="openSettings()" title="Settings">&#9881;</button>
+    <button class="tb-btn" onclick="toggleTheme()" title="Theme">&#9790;</button>
+    <button class="tb-btn" onclick="api.openLogsFolder()" title="Logs">&#128196;</button>
+    <button class="tb-btn" onclick="api.minimize()" title="Minimize">&#8722;</button>
+    <button class="tb-btn" onclick="api.maximize()" title="Maximize">&#9633;</button>
+    <button class="tb-btn close" onclick="api.close()" title="Close">&#10005;</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="top-section">
+    <div class="power-panel">
+      <button class="power-btn" id="powerBtn" onclick="togglePower()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        <div class="power-pulse"></div>
+      </button>
+      <div class="power-status" id="powerStatus">OFFLINE</div>
+    </div>
+
+    <div class="meters-panel">
+      <div class="meter-card">
+        <div class="meter-label">Input Level</div>
+        <div class="meter-bar-bg"><div class="meter-bar" id="inputMeter"></div></div>
+        <div class="meter-value" id="inputLevelVal">0%</div>
+      </div>
+      <div class="meter-card">
+        <div class="meter-label">Output Level</div>
+        <div class="meter-bar-bg"><div class="meter-bar" id="outputMeter"></div></div>
+        <div class="meter-value" id="outputLevelVal">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-panel">
+    <div class="stat"><div class="stat-label">Latency</div><div class="stat-value accent" id="statLatency">0ms</div></div>
+    <div class="stat"><div class="stat-label">CPU</div><div class="stat-value accent2" id="statCPU">0%</div></div>
+    <div class="stat"><div class="stat-label">RAM</div><div class="stat-value" id="statRAM">0MB</div></div>
+    <div class="stat"><div class="stat-label">Processed</div><div class="stat-value" id="statProcessed">0</div></div>
+    <div class="stat"><div class="stat-label">Uptime</div><div class="stat-value" id="statUptime">0:00</div></div>
+    <div class="stat"><div class="stat-label">Sample Rate</div><div class="stat-value" id="statSampleRate">44100</div></div>
+  </div>
+
+  <div class="mid-section">
+    <div class="effects-panel">
+      <div class="panel-header">
+        <div class="panel-title">Voice Effects</div>
+        <div class="panel-actions">
+          <button class="panel-btn" onclick="disableAllEffects()">Disable All</button>
+          <button class="panel-btn" onclick="openPresets()">Presets</button>
+        </div>
+      </div>
+      <div class="effects-grid" id="effectsGrid"></div>
+    </div>
+
+    <div class="side-panel">
+      <div class="side-card">
+        <div class="side-card-title">Input Device</div>
+        <select class="device-select" id="inputDevice" onchange="changeInputDevice()"></select>
+        <div class="volume-row">
+          <div class="volume-header"><span class="volume-label">Mic Volume</span><span class="volume-val" id="inputVolVal">80%</span></div>
+          <input type="range" class="volume-slider" id="inputVol" min="0" max="100" value="80" oninput="changeInputVolume()">
+        </div>
+      </div>
+      <div class="side-card">
+        <div class="side-card-title">Output Device</div>
+        <select class="device-select" id="outputDevice" onchange="changeOutputDevice()"></select>
+        <div class="volume-row">
+          <div class="volume-header"><span class="volume-label">Output Volume</span><span class="volume-val" id="outputVolVal">80%</span></div>
+          <input type="range" class="volume-slider" id="outputVol" min="0" max="100" value="80" oninput="changeOutputVolume()">
+        </div>
+      </div>
+      <div class="side-card" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+        <div class="side-card-title">Models</div>
+        <div id="modelsList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+        <button class="preset-add" onclick="addModel()" style="margin-top:4px">+ Import Model</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeModal('settingsModal')">&#10005;</button>
+    <div class="modal-title">Settings</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Sample Rate</label>
+        <select class="form-input" id="setSampleRate">
+          <option value="22050">22050 Hz</option>
+          <option value="44100" selected>44100 Hz</option>
+          <option value="48000">48000 Hz</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Buffer Size</label>
+        <select class="form-input" id="setBufferSize">
+          <option value="128">128</option>
+          <option value="256" selected>256</option>
+          <option value="512">512</option>
+          <option value="1024">1024</option>
+          <option value="2048">2048</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Noise Gate Threshold</label>
+      <input type="range" class="volume-slider" id="setNoiseGate" min="0" max="100" value="5">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Language</label>
+      <select class="form-input" id="setLanguage">
+        <option value="en">English</option><option value="tr">Turkish</option>
+        <option value="de">German</option><option value="fr">French</option>
+        <option value="es">Spanish</option><option value="ru">Russian</option>
+        <option value="zh">Chinese</option><option value="ja">Japanese</option>
+        <option value="ko">Korean</option><option value="ar">Arabic</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">UI Options</label>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--text-secondary)">
+        <label><input type="checkbox" id="setMinTray" checked> Minimize to tray</label>
+        <label><input type="checkbox" id="setShowLatency" checked> Show latency</label>
+        <label><input type="checkbox" id="setAutoStart"> Auto-start</label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      <button class="btn btn-secondary" onclick="resetSettings()">Reset Defaults</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="presetsModal">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeModal('presetsModal')">&#10005;</button>
+    <div class="modal-title">Presets</div>
+    <div id="presetsList" style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" class="form-input" id="presetNameInput" placeholder="Preset name..." style="flex:1">
+      <button class="btn btn-primary" onclick="saveCurrentPreset()">Save Current</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modelMetaModal">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeModal('modelMetaModal')">&#10005;</button>
+    <div class="modal-title">Model Info</div>
+    <div class="form-group"><label class="form-label">Name</label><input type="text" class="form-input" id="metaName"></div>
+    <div class="form-group"><label class="form-label">Author</label><input type="text" class="form-input" id="metaAuthor"></div>
+    <div class="form-group"><label class="form-label">Version</label><input type="text" class="form-input" id="metaVersion"></div>
+    <div class="form-group"><label class="form-label">Description</label><input type="text" class="form-input" id="metaDesc"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary" onclick="saveModelMeta()">Save</button>
+      <button class="btn btn-secondary" onclick="closeModal('modelMetaModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const EFFECTS = [
+  {id:'pitchShift',name:'Pitch',icon:'&#9835;',group:'voice'},
+  {id:'formantShift',name:'Formant',icon:'&#9834;',group:'voice'},
+  {id:'reverb',name:'Reverb',icon:'&#9836;',group:'space'},
+  {id:'echo',name:'Echo',icon:'&#128266;',group:'space'},
+  {id:'chorus',name:'Chorus',icon:'&#127926;',group:'modulation'},
+  {id:'compressor',name:'Comp',icon:'&#8597;',group:'dynamics'},
+  {id:'limiter',name:'Limiter',icon:'&#9888;',group:'dynamics'},
+  {id:'equalizer',name:'EQ',icon:'&#9837;',group:'tone'},
+  {id:'bassBoost',name:'Bass',icon:'&#127925;',group:'tone'},
+  {id:'trebleBoost',name:'Treble',icon:'&#127927;',group:'tone'},
+  {id:'distortion',name:'Distort',icon:'&#9889;',group:'creative'},
+  {id:'radio',name:'Radio',icon:'&#128225;',group:'creative'},
+  {id:'telephone',name:'Phone',icon:'&#128222;',group:'creative'},
+  {id:'robot',name:'Robot',icon:'&#129302;',group:'creative'},
+  {id:'alien',name:'Alien',icon:'&#128125;',group:'creative'},
+  {id:'monster',name:'Monster',icon:'&#128025;',group:'creative'},
+  {id:'childVoice',name:'Child',icon:'&#128118;',group:'creative'},
+  {id:'deepVoice',name:'Deep',icon:'&#128128;',group:'creative'},
+  {id:'chipmunk',name:'Chipmunk',icon:'&#128057;',group:'creative'},
+  {id:'hall',name:'Hall',icon:'&#127963;',group:'space'},
+  {id:'cave',name:'Cave',icon:'&#9968;',group:'space'},
+  {id:'stadium',name:'Stadium',icon:'&#9917;',group:'space'},
+  {id:'autoTune',name:'AutoTune',icon:'&#127908;',group:'modulation'}
+];
+
+let state = {
+  running: false, theme: 'dark', settings: {},
+  activeEffects: {}, modelMetaEditId: null
+};
+
+let audioCtx = null, micStream = null, micSource = null;
+let inputGain = null, outputGain = null, analyserIn = null, analyserOut = null;
+let workletNode = null, meterRAF = null;
+let processedCount = 0, startTime = 0;
+
+function $(id){return document.getElementById(id)}
+
+function init(){
+  loadTheme();
+  renderEffectsGrid();
+  enumerateBrowserDevices().then(() => loadDevices());
+  loadSettings();
+  loadModels();
+  setupEventListeners();
+  showToast('VoiceEffect ready');
+}
+
+function loadTheme(){
+  const t = localStorage.getItem('ve-theme') || 'dark';
+  state.theme = t;
+  document.documentElement.setAttribute('data-theme', t);
+}
+
+function toggleTheme(){
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', state.theme);
+  localStorage.setItem('ve-theme', state.theme);
+}
+
+function renderEffectsGrid(){
+  const grid = $('effectsGrid');
+  grid.innerHTML = '';
+  EFFECTS.forEach(fx => {
+    const el = document.createElement('div');
+    el.className = 'effect-btn';
+    el.id = 'fx-' + fx.id;
+    el.innerHTML = `
+      <div class="effect-icon">${fx.icon}</div>
+      <div class="effect-name">${fx.name}</div>
+      <div class="effect-slider-row">
+        <input type="range" class="effect-slider" min="0" max="100" value="50"
+          oninput="event.stopPropagation();setEffectValue('${fx.id}',this.value)"
+          onclick="event.stopPropagation()">
+      </div>
+    `;
+    el.onclick = () => toggleEffect(fx.id);
+    grid.appendChild(el);
+  });
+}
+
+function toggleEffect(id){
+  const btn = $('fx-'+id);
+  const active = btn.classList.toggle('active');
+  if(!state.activeEffects[id]) state.activeEffects[id] = { enabled: false, value: 50 };
+  state.activeEffects[id].enabled = active;
+  if(api) api.toggleEffect(id, active);
+  if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: id, params: state.activeEffects[id] });
+  if(active) showToast(`${EFFECTS.find(e=>e.id===id)?.name || id} enabled`);
+}
+
+function setEffectValue(id, val){
+  if(!state.activeEffects[id]) state.activeEffects[id] = {enabled:true, value:50};
+  state.activeEffects[id].value = parseInt(val);
+  if(api) api.setEffect(id, {value: parseInt(val)});
+  if(workletNode) workletNode.port.postMessage({ type: 'set', name: id, value: parseInt(val) });
+}
+
+function disableAllEffects(){
+  Object.keys(state.activeEffects).forEach(id => {
+    const btn = $('fx-'+id);
+    if(btn) btn.classList.remove('active');
+    state.activeEffects[id].enabled = false;
+    if(api) api.toggleEffect(id, false);
+    if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: id, params: state.activeEffects[id] });
+  });
+  showToast('All effects disabled');
+}
+
+async function loadDevices(){
+  try {
+    await enumerateBrowserDevices();
+    const inputSel = $('inputDevice');
+    const outputSel = $('outputDevice');
+    const prevInput = inputSel.value;
+    const prevOutput = outputSel.value;
+    inputSel.innerHTML = '';
+    outputSel.innerHTML = '';
+    if(browserDeviceIds.inputs.length === 0){
+      inputSel.innerHTML = '<option value="default">Default Microphone</option>';
+    } else {
+      browserDeviceIds.inputs.forEach((d, i) => {
+        const label = d.label || ('Microphone ' + (i+1));
+        inputSel.innerHTML += `<option value="${d.deviceId}">${label}</option>`;
+      });
+    }
+    if(browserDeviceIds.outputs.length === 0){
+      outputSel.innerHTML = '<option value="default">Default Speakers</option>';
+    } else {
+      browserDeviceIds.outputs.forEach((d, i) => {
+        const label = d.label || ('Speaker ' + (i+1));
+        outputSel.innerHTML += `<option value="${d.deviceId}">${label}</option>`;
+      });
+    }
+    if(prevInput && inputSel.querySelector(`option[value="${prevInput}"]`)) inputSel.value = prevInput;
+    if(prevOutput && outputSel.querySelector(`option[value="${prevOutput}"]`)) outputSel.value = prevOutput;
+  } catch(e) { console.error('Device load error:', e); }
+}
+
+async function changeInputDevice(){
+  const id = $('inputDevice').value;
+  state.settings.inputDevice = id;
+  if(api) api.setInputDevice(id);
+  if(state.running) { stopAudio(); const ok = await startAudio(); if(!ok){ await api.stopAudio(); state.running = false; $('powerBtn').classList.remove('active'); $('powerStatus').textContent = 'OFFLINE'; $('powerStatus').classList.remove('active'); } }
+}
+
+async function changeOutputDevice(){
+  const id = $('outputDevice').value;
+  state.settings.outputDevice = id;
+  if(api) api.setOutputDevice(id);
+  if(state.running && audioCtx && audioCtx.setSinkId){
+    try { await audioCtx.setSinkId(id === 'default' ? '' : id); } catch(e){ console.warn('setSinkId failed:', e); }
+  }
+}
+
+function changeInputVolume(){
+  const v = $('inputVol').value;
+  $('inputVolVal').textContent = v + '%';
+  if(inputGain) inputGain.gain.value = v / 100;
+  if(api) api.setInputVolume(parseInt(v));
+}
+
+function changeOutputVolume(){
+  const v = $('outputVol').value;
+  $('outputVolVal').textContent = v + '%';
+  if(outputGain) outputGain.gain.value = v / 100;
+  if(api) api.setOutputVolume(parseInt(v));
+}
+
+async function togglePower(){
+  if(state.running) {
+    stopAudio();
+    await api.stopAudio();
+    state.running = false;
+    $('powerBtn').classList.remove('active');
+    $('powerStatus').textContent = 'OFFLINE';
+    $('powerStatus').classList.remove('active');
+    showToast('Audio engine stopped');
+  } else {
+    const r = await api.startAudio({});
+    if(r && r.success !== false) {
+      const ok = await startAudio();
+      if(ok) {
+        state.running = true;
+        $('powerBtn').classList.add('active');
+        $('powerStatus').textContent = 'ONLINE';
+        $('powerStatus').classList.add('active');
+        showToast('Audio engine started');
+        enumerateBrowserDevices().then(() => loadDevices());
+      } else {
+        await api.stopAudio();
+        showToast('Microphone access denied');
+      }
+    }
+  }
+}
+
+let browserDeviceIds = { inputs: [], outputs: [] };
+
+async function enumerateBrowserDevices(){
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    browserDeviceIds.inputs = devs.filter(d => d.kind === 'audioinput');
+    browserDeviceIds.outputs = devs.filter(d => d.kind === 'audiooutput');
+  } catch(e) { console.error('Browser device enum error:', e); }
+}
+
+async function startAudio(){
+  try {
+    const selectedInputId = state.settings.inputDevice || 'default';
+    console.log('[Audio] Starting with input device:', selectedInputId);
+    let deviceIdConstraint;
+    if(selectedInputId && selectedInputId !== 'default'){
+      const match = browserDeviceIds.inputs.find(d => d.deviceId === selectedInputId);
+      if(match) deviceIdConstraint = selectedInputId;
+    }
+    const audioConstraints = {
+      echoCancellation: false, noiseSuppression: false, autoGainControl: false
+    };
+    if(deviceIdConstraint) audioConstraints.deviceId = { exact: deviceIdConstraint };
+    console.log('[Audio] Requesting getUserMedia...');
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+    console.log('[Audio] Got mic stream, track:', micStream.getAudioTracks()[0]?.label);
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+    console.log('[Audio] AudioContext state:', audioCtx.state);
+    await audioCtx.resume();
+    console.log('[Audio] AudioContext resumed, state:', audioCtx.state);
+
+    const selectedOutputId = state.settings.outputDevice || 'default';
+    if(audioCtx.setSinkId && selectedOutputId && selectedOutputId !== 'default'){
+      const match = browserDeviceIds.outputs.find(d => d.deviceId === selectedOutputId);
+      if(match){
+        try { await audioCtx.setSinkId(selectedOutputId); console.log('[Audio] Output device set'); } catch(e){ console.warn('[Audio] setSinkId failed:', e.message); }
+      }
+    }
+
+    await audioCtx.audioWorklet.addModule('voice-processor.js');
+    console.log('[Audio] AudioWorklet module loaded');
+
+    micSource = audioCtx.createMediaStreamSource(micStream);
+    inputGain = audioCtx.createGain();
+    inputGain.gain.value = ($('inputVol')?.value || 80) / 100;
+    outputGain = audioCtx.createGain();
+    outputGain.gain.value = ($('outputVol')?.value || 80) / 100;
+    analyserIn = audioCtx.createAnalyser();
+    analyserIn.fftSize = 256;
+    analyserOut = audioCtx.createAnalyser();
+    analyserOut.fftSize = 256;
+
+    workletNode = new AudioWorkletNode(audioCtx, 'voice-processor');
+    workletNode.port.onmessage = (e) => {
+      if(e.data.type === 'stats') processedCount = e.data.processed;
+    };
+    const activeFx = {};
+    Object.entries(state.activeEffects).forEach(([id, params]) => {
+      if(params && params.enabled) activeFx[id] = params;
+    });
+    workletNode.port.postMessage({ type: 'effects', effects: activeFx });
+
+    micSource.connect(inputGain);
+    inputGain.connect(analyserIn);
+    analyserIn.connect(workletNode);
+    workletNode.connect(outputGain);
+    outputGain.connect(analyserOut);
+    analyserOut.connect(audioCtx.destination);
+    processedCount = 0;
+    startTime = Date.now();
+    startMeterLoop();
+    $('statSampleRate').textContent = audioCtx.sampleRate;
+    console.log('[Audio] Pipeline connected (AudioWorklet), running');
+    return true;
+  } catch(e) {
+    console.error('[Audio] startAudio error:', e);
+    showToast('Audio error: ' + e.message);
+    return false;
+  }
+}
+
+function stopAudio(){
+  if(micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if(workletNode) { workletNode.disconnect(); workletNode = null; }
+  if(micSource) { micSource.disconnect(); micSource = null; }
+  if(audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; }
+  if(meterRAF) { cancelAnimationFrame(meterRAF); meterRAF = null; }
+  inputGain = null; outputGain = null; analyserIn = null; analyserOut = null;
+}
+
+function startMeterLoop(){
+  if(!analyserIn || !analyserOut) return;
+  const bufIn = new Float32Array(analyserIn.fftSize);
+  const bufOut = new Float32Array(analyserOut.fftSize);
+  function loop(){
+    analyserIn.getFloatTimeDomainData(bufIn);
+    let sum=0; for(let i=0;i<bufIn.length;i++) sum+=bufIn[i]*bufIn[i];
+    const rmsIn = Math.sqrt(sum/bufIn.length);
+    const pctIn = Math.min(100, Math.round(rmsIn*300));
+    $('inputMeter').style.width = pctIn+'%';
+    $('inputMeter').className = 'meter-bar'+(pctIn>85?' warn':'');
+    $('inputLevelVal').textContent = pctIn+'%';
+
+    analyserOut.getFloatTimeDomainData(bufOut);
+    sum=0; for(let i=0;i<bufOut.length;i++) sum+=bufOut[i]*bufOut[i];
+    const rmsOut = Math.sqrt(sum/bufOut.length);
+    const pctOut = Math.min(100, Math.round(rmsOut*300));
+    $('outputMeter').style.width = pctOut+'%';
+    $('outputMeter').className = 'meter-bar'+(pctOut>85?' warn':'');
+    $('outputLevelVal').textContent = pctOut+'%';
+
+    $('statProcessed').textContent = processedCount;
+    if(startTime){
+      const up = Math.round((Date.now()-startTime)/1000);
+      $('statUptime').textContent = Math.floor(up/60)+':'+((up%60<10?'0':'')+(up%60));
+    }
+    if(api) api.updateAudioStats({processed: processedCount, latency: Math.round(audioCtx?.baseLatency*1000||0)});
+
+    meterRAF = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+async function loadSettings(){
+  try {
+    const s = await api.getSettings();
+    state.settings = s;
+    if($('inputVol')){ $('inputVol').value = s.inputVolume||80; $('inputVolVal').textContent=(s.inputVolume||80)+'%'; }
+    if($('outputVol')){ $('outputVol').value = s.outputVolume||80; $('outputVolVal').textContent=(s.outputVolume||80)+'%'; }
+    if(s.inputDevice != null) $('inputDevice').value = s.inputDevice;
+    if(s.outputDevice != null) $('outputDevice').value = s.outputDevice;
+    if($('setSampleRate')) $('setSampleRate').value = s.sampleRate || 44100;
+    if($('setBufferSize')) $('setBufferSize').value = s.bufferSize || 256;
+    if($('setLanguage')) $('setLanguage').value = s.language || 'en';
+    if($('setMinTray')) $('setMinTray').checked = s.minimizeToTray !== false;
+    if($('setShowLatency')) $('setShowLatency').checked = s.showLatency !== false;
+    if($('setAutoStart')) $('setAutoStart').checked = s.autoStart || false;
+    if(s.effects) {
+      Object.entries(s.effects).forEach(([id, params]) => {
+        if(params.enabled) {
+          const btn = $('fx-'+id);
+          if(btn) btn.classList.add('active');
+          state.activeEffects[id] = params;
+          const slider = btn?.querySelector('.effect-slider');
+          if(slider) slider.value = params.value || 50;
+        }
+      });
+    }
+  } catch(e) { console.error('Settings load error:', e); }
+}
+
+async function saveSettings(){
+  const s = {
+    ...state.settings,
+    sampleRate: parseInt($('setSampleRate').value),
+    bufferSize: parseInt($('setBufferSize').value),
+    language: $('setLanguage').value,
+    minimizeToTray: $('setMinTray').checked,
+    showLatency: $('setShowLatency').checked,
+    autoStart: $('setAutoStart').checked,
+    effects: state.activeEffects
+  };
+  await api.saveSettings(s);
+  state.settings = s;
+  closeModal('settingsModal');
+  showToast('Settings saved');
+}
+
+async function resetSettings(){
+  if(api) await api.saveSettings({});
+  await loadSettings();
+  showToast('Settings reset to defaults');
+}
+
+async function loadModels(){
+  try {
+    const models = await api.getModels();
+    const list = $('modelsList');
+    list.innerHTML = '';
+    if(models.length === 0){
+      list.innerHTML = '<div style="font-size:10px;color:var(--text-secondary);text-align:center;padding:12px">No models found. Click + to import.</div>';
+      return;
+    }
+    models.forEach(m => {
+      const el = document.createElement('div');
+      el.className = 'model-item' + (state.settings.activeModel === m.id ? ' active' : '');
+      const sizeMB = (m.size / 1024 / 1024).toFixed(1);
+      el.innerHTML = `
+        <div class="model-info">
+          <div class="model-name" title="${m.file}">${m.name}</div>
+          <div class="model-meta">${m.author} v${m.version} - ${sizeMB}MB</div>
+        </div>
+        <div class="model-actions">
+          <button class="model-btn load" onclick="loadModel('${m.id}')" title="Load">&#9654;</button>
+          <button class="model-btn" onclick="editModelMeta('${m.id}','${m.name}','${m.author}','${m.version}','${(m.description||'').replace(/'/g,"\\'")}')" title="Edit" style="color:var(--warning)">&#9998;</button>
+          <button class="model-btn delete" onclick="removeModel('${m.id}')" title="Remove">&#10005;</button>
+        </div>
+      `;
+      list.appendChild(el);
+    });
+  } catch(e) { console.error('Model load error:', e); }
+}
+
+async function addModel(){
+  const file = await api.importFile({
+    title: 'Import ONNX Model',
+    filters: [{name:'ONNX Models',extensions:['onnx','bin']},{name:'All Files',extensions:['*']}]
+  });
+  if(file){
+    const r = await api.addModel(file);
+    if(r?.success){ loadModels(); showToast('Model imported'); }
+    else showToast('Import failed: ' + (r?.error||''));
+  }
+}
+
+async function removeModel(id){
+  if(!confirm('Remove this model?')) return;
+  const r = await api.removeModel(id);
+  if(r?.success){ loadModels(); showToast('Model removed'); }
+}
+
+async function loadModel(id){
+  showToast('Loading model...');
+  const r = await api.loadModel(id);
+  if(r?.success){
+    state.settings.activeModel = id;
+    loadModels();
+    showToast('Model loaded');
+  } else {
+    showToast('Model load failed: ' + (r?.error||''));
+  }
+}
+
+function editModelMeta(id,name,author,version,desc){
+  state.modelMetaEditId = id;
+  $('metaName').value = name||'';
+  $('metaAuthor').value = author||'';
+  $('metaVersion').value = version||'';
+  $('metaDesc').value = desc||'';
+  $('modelMetaModal').classList.add('show');
+}
+
+async function saveModelMeta(){
+  const meta = {
+    name: $('metaName').value,
+    author: $('metaAuthor').value,
+    version: $('metaVersion').value,
+    description: $('metaDesc').value
+  };
+  await api.saveModelMeta(state.modelMetaEditId, meta);
+  closeModal('modelMetaModal');
+  loadModels();
+  showToast('Model info saved');
+}
+
+async function loadPresets(){
+  try {
+    const presets = await api.getPresets();
+    const list = $('presetsList');
+    list.innerHTML = '';
+    if(presets.length === 0){
+      list.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:12px">No presets saved yet.</div>';
+      return;
+    }
+    presets.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'preset-item';
+      el.innerHTML = `
+        <span class="preset-name" onclick="applyPreset('${p.id}')">${p.name || p.id}</span>
+        <button class="preset-del" onclick="event.stopPropagation();deletePreset('${p.id}')">&#10005;</button>
+      `;
+      list.appendChild(el);
+    });
+  } catch(e) {}
+}
+
+function openPresets(){
+  loadPresets();
+  $('presetsModal').classList.add('show');
+}
+
+async function saveCurrentPreset(){
+  const name = $('presetNameInput').value.trim();
+  if(!name){ showToast('Enter a preset name'); return; }
+  const preset = { name, effects: {...state.activeEffects}, date: new Date().toISOString() };
+  const r = await api.savePreset(preset);
+  if(r?.success){
+    $('presetNameInput').value = '';
+    loadPresets();
+    showToast('Preset saved: ' + name);
+  }
+}
+
+async function applyPreset(id){
+  const presets = await api.getPresets();
+  const preset = presets.find(p => p.id === id);
+  if(!preset) return;
+  disableAllEffects();
+  if(preset.effects) {
+    Object.entries(preset.effects).forEach(([fxId, params]) => {
+      if(params.enabled){
+        const btn = $('fx-'+fxId);
+        if(btn) btn.classList.add('active');
+        state.activeEffects[fxId] = params;
+        api.toggleEffect(fxId, true);
+        api.setEffect(fxId, params);
+        if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: fxId, params });
+        const slider = btn?.querySelector('.effect-slider');
+        if(slider) slider.value = params.value || 50;
+      }
+    });
+  }
+  closeModal('presetsModal');
+  showToast('Preset applied: ' + (preset.name || id));
+}
+
+async function deletePreset(id){
+  if(!confirm('Delete this preset?')) return;
+  await api.deletePreset(id);
+  loadPresets();
+  showToast('Preset deleted');
+}
+
+function openSettings(){ $('settingsModal').classList.add('show'); }
+function closeModal(id){ $(id).classList.remove('show'); }
+
+function showToast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function setupEventListeners(){
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){
+      document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+    }
+  });
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if(e.target === m) m.classList.remove('show'); });
+  });
+  if(api){
+    setInterval(async () => {
+      try {
+        const s = await api.getSystemStats();
+        if(s.cpu !== undefined) $('statCPU').textContent = s.cpu + '%';
+        if(s.ramUsed !== undefined) $('statRAM').textContent = s.ramUsed + 'MB';
+        if(s.latency !== undefined) $('statLatency').textContent = s.latency + 'ms';
+      } catch(e) {}
+    }, 2000);
+    api.onLogMessage(msg => {
+      console.log(`[${msg.level}] ${msg.message}`);
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+build/
+.env
+*.log
+logs/
+.DS_Store
+Thumbs.db
+desktop.ini
+settings.json
+*.onnx
+*.bin
+presets/*.json
