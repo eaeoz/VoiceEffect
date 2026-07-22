@@ -34,33 +34,6 @@ body{display:flex;flex-direction:column}
 .titlebar-left{display:flex;align-items:center;gap:8px}
 .logo{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:var(--accent)}
 .logo svg{width:20px;height:20px}
-.profile-wrap{position:relative}
-.profile-btn{display:flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--border);
-border-radius:var(--radius-xs);background:transparent;color:var(--text-secondary);font-size:10px;
-cursor:pointer;transition:.15s;max-width:140px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.profile-btn:hover{border-color:var(--accent);color:var(--accent)}
-.profile-btn .pf-name{overflow:hidden;text-overflow:ellipsis}
-.profile-btn .pf-chevron{font-size:8px;margin-left:2px}
-.profile-dd{position:absolute;top:100%;left:0;margin-top:4px;min-width:200px;
-background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);
-box-shadow:var(--shadow);z-index:50;display:none;overflow:hidden}
-.profile-dd.open{display:block}
-.profile-dd-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;
-font-size:11px;color:var(--text-primary);cursor:pointer;transition:.1s}
-.profile-dd-item:hover{background:rgba(124,58,237,0.1)}
-.profile-dd-item.active{color:var(--accent);font-weight:600}
-.profile-dd-del{width:18px;height:18px;border:none;background:transparent;color:var(--danger);
-cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;
-font-size:11px;opacity:0;transition:.15s}
-.profile-dd-item:hover .profile-dd-del{opacity:1}
-.profile-dd-sep{height:1px;background:var(--border);margin:2px 0}
-.profile-dd-save{display:flex;align-items:center;gap:4px;padding:4px 6px}
-.profile-dd-save input{flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);
-background:var(--bg-primary);color:var(--text-primary);font-size:11px;outline:none;min-width:0}
-.profile-dd-save input:focus{border-color:var(--accent)}
-.profile-dd-save button{padding:4px 8px;border:none;border-radius:var(--radius-xs);
-background:var(--accent);color:#fff;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap}
-.profile-dd-save button:hover{background:#6d28d9}
 .titlebar-center{font-size:11px;color:var(--text-secondary)}
 .titlebar-right{display:flex;gap:2px;-webkit-app-region:no-drag}
 .tb-btn{width:32px;height:26px;border:none;background:transparent;color:var(--text-secondary);
@@ -233,8 +206,6 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
 [data-theme="light"] .device-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666688' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
 [data-theme="light"] .fx-toggle{background:#e8e8f0}
 [data-theme="light"] .fx-toggle::after{background:#8888aa}
-[data-theme="light"] .profile-btn{color:#666688}
-[data-theme="light"] .profile-dd{background:#fff}
 </style>
 </head>
 <body>
@@ -243,20 +214,6 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
     <div class="logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
       VoiceEffect
-    </div>
-    <div class="profile-wrap">
-      <button class="profile-btn" onclick="toggleProfileDD()">
-        <span class="pf-name" id="pfName">No Profile</span>
-        <span class="pf-chevron">&#9660;</span>
-      </button>
-      <div class="profile-dd" id="profileDD">
-        <div id="pfList"></div>
-        <div class="profile-dd-sep"></div>
-        <div class="profile-dd-save">
-          <input type="text" id="pfSaveName" placeholder="Profile name...">
-          <button onclick="saveProfile()">Save</button>
-        </div>
-      </div>
     </div>
   </div>
   <div class="titlebar-center">Real-Time Voice Processor</div>
@@ -309,8 +266,6 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
         <div class="panel-title">Voice Effects</div>
         <div class="panel-actions">
           <button class="panel-btn" onclick="disableAllEffects()">Disable All</button>
-          <button class="panel-btn panel-btn-accent" onclick="openProfilesModal()" title="Load a saved profile">&#128194; Load</button>
-          <button class="panel-btn panel-btn-accent" onclick="quickSaveProfile()" title="Save current settings as a profile">&#128190; Save</button>
         </div>
       </div>
       <div class="effects-scroll" id="effectsScroll"></div>
@@ -333,10 +288,16 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
           <input type="range" class="volume-slider" id="outputVol" min="0" max="100" value="80" oninput="changeOutputVolume()">
         </div>
       </div>
-      <div class="side-card" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
-        <div class="side-card-title">Models</div>
-        <div id="modelsList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
-        <button class="preset-add" onclick="addModel()" style="margin-top:4px">+ Import Model</button>
+      <div class="side-card" style="flex:1">
+        <div class="side-card-title">Profile</div>
+        <select class="device-select" id="profileSelect" onchange="onProfileSelectChange()" style="margin-bottom:8px">
+          <option value="">-- None --</option>
+        </select>
+        <div style="display:flex;gap:4px">
+          <input type="text" id="quickProfileName" placeholder="Profile name..." style="flex:1;padding:4px 8px;font-size:11px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-xs);outline:none">
+          <button class="panel-btn panel-btn-accent" onclick="quickSaveProfile()" style="white-space:nowrap" title="Save current settings">&#128190; Save</button>
+        </div>
+        <button class="preset-add" onclick="deleteSelectedProfile()" style="margin-top:6px">Delete Selected</button>
       </div>
     </div>
   </div>
@@ -392,23 +353,10 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
       <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
       <button class="btn btn-secondary" onclick="resetSettings()">Reset Defaults</button>
     </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="profileModal">
-  <div class="modal" style="position:relative">
-    <button class="modal-close" onclick="closeModal('profileModal')">&#10005;</button>
-    <div class="modal-title">Profiles</div>
-    <div class="form-group">
-      <label class="form-label">Save Current Settings</label>
-      <div style="display:flex;gap:6px">
-        <input type="text" class="form-input" id="modalProfileName" placeholder="Profile name...">
-        <button class="btn btn-primary" onclick="quickSaveFromModal()">Save</button>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Saved Profiles</label>
-      <div id="modalProfileList" style="max-height:200px;overflow-y:auto"></div>
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+      <label class="form-label" style="margin-bottom:8px;display:block">ONNX Models</label>
+      <div id="settingsModelsList" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+      <button class="preset-add" onclick="addModel()" style="margin-top:8px">+ Import Model</button>
     </div>
   </div>
 </div>
@@ -478,6 +426,7 @@ function init(){
   enumerateBrowserDevices().then(() => loadDevices());
   loadSettings();
   loadModels();
+  loadProfileSelect();
   setupEventListeners();
   showToast('VoiceEffect ready');
 }
@@ -530,6 +479,14 @@ function toggleEffect(id){
   const toggle = row.querySelector('.fx-toggle');
   const active = toggle.classList.toggle('on');
   row.classList.toggle('active', active);
+  if(!active){
+    const slider = row.querySelector('.fx-slider');
+    if(slider) slider.value = 50;
+    const val = row.querySelector('.fx-val');
+    if(val) val.textContent = '50%';
+    if(!state.activeEffects[id]) state.activeEffects[id] = { enabled: false, value: 50 };
+    state.activeEffects[id].value = 50;
+  }
   if(!state.activeEffects[id]) state.activeEffects[id] = { enabled: false, value: 50 };
   state.activeEffects[id].enabled = active;
   if(api) api.toggleEffect(id, active);
@@ -849,7 +806,7 @@ async function resetSettings(){
 async function loadModels(){
   try {
     const models = await api.getModels();
-    const list = $('modelsList');
+    const list = $('settingsModelsList');
     list.innerHTML = '';
     if(models.length === 0){
       list.innerHTML = '<div style="font-size:10px;color:var(--text-secondary);text-align:center;padding:12px">No models found. Click + to import.</div>';
@@ -939,60 +896,67 @@ async function saveModelMeta(){
 
 let activeProfileId = null;
 
-function quickSaveProfile(){
-  const name = prompt('Profile name:');
-  if(!name) return;
+async function quickSaveProfile(){
+  const nameEl = $('quickProfileName');
+  const name = nameEl ? nameEl.value.trim() : '';
+  if(!name){ showToast('Enter a profile name'); nameEl.focus(); return; }
   const preset = { name, effects: {...state.activeEffects}, date: new Date().toISOString() };
-  api.savePreset(preset).then(r => {
-    if(r?.success){
+  try {
+    const r = await api.savePreset(preset);
+    if(r && r.success){
       activeProfileId = r.id || null;
-      $('pfName').textContent = name;
+      nameEl.value = '';
+      loadProfileSelect();
       showToast('Profile saved: ' + name);
+    } else {
+      showToast('Save failed: ' + (r && r.error ? r.error : 'unknown'));
     }
-  });
+  } catch(e) {
+    console.error('Save profile error:', e);
+    showToast('Save failed: ' + e.message);
+  }
+  nameEl.focus();
 }
 
-function openProfilesModal(){
-  $('modalProfileName').value = '';
-  loadModalProfileList();
-  $('profileModal').classList.add('show');
+async function deleteSelectedProfile(){
+  const id = $('profileSelect').value;
+  if(!id){ showToast('Select a profile first'); return; }
+  if(!confirm('Delete this profile?')){ $('quickProfileName').focus(); return; }
+  try {
+    await api.deletePreset(id);
+    activeProfileId = null;
+    loadProfileSelect();
+    showToast('Profile deleted');
+  } catch(e) {
+    console.error('Delete profile error:', e);
+  }
+  setTimeout(() => $('quickProfileName').focus(), 100);
 }
 
-function quickSaveFromModal(){
-  const name = $('modalProfileName').value.trim();
-  if(!name){ showToast('Enter a name'); return; }
-  const preset = { name, effects: {...state.activeEffects}, date: new Date().toISOString() };
-  api.savePreset(preset).then(r => {
-    if(r?.success){
-      activeProfileId = r.id || null;
-      $('pfName').textContent = name;
-      loadModalProfileList();
-      showToast('Profile saved: ' + name);
-    }
-  });
-}
-
-function loadModalProfileList(){
+function loadProfileSelect(){
   loadPresets().then(presets => {
-    const list = $('modalProfileList');
-    list.innerHTML = '';
-    if(presets.length === 0){
-      list.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:12px">No profiles yet. Adjust effects, then save.</div>';
-      return;
-    }
+    const sel = $('profileSelect');
+    if(!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">-- None --</option>';
     presets.forEach(p => {
-      const el = document.createElement('div');
-      el.className = 'preset-item';
-      el.innerHTML = `
-        <span class="preset-name" onclick="loadProfileFromModal('${p.id}')">${p.name || p.id}</span>
-        <button class="preset-del" onclick="event.stopPropagation();deleteProfileFromModal('${p.id}')">&#10005;</button>
-      `;
-      list.appendChild(el);
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name || p.id;
+      if(p.id === activeProfileId) opt.selected = true;
+      sel.appendChild(opt);
     });
+    if(current && current !== activeProfileId) sel.value = current;
   });
 }
 
-async function loadProfileFromModal(id){
+async function onProfileSelectChange(){
+  const id = $('profileSelect').value;
+  if(!id){
+    disableAllEffects();
+    activeProfileId = null;
+    return;
+  }
   const presets = await api.getPresets();
   const preset = presets.find(p => p.id === id);
   if(!preset) return;
@@ -1018,108 +982,14 @@ async function loadProfileFromModal(id){
     });
   }
   activeProfileId = id;
-  $('pfName').textContent = preset.name || id;
-  closeModal('profileModal');
   showToast('Loaded: ' + (preset.name || id));
-}
-
-async function deleteProfileFromModal(id){
-  if(!confirm('Delete this profile?')) return;
-  await api.deletePreset(id);
-  if(activeProfileId === id){ activeProfileId = null; $('pfName').textContent = 'No Profile'; }
-  loadModalProfileList();
-  showToast('Profile deleted');
-}
-
-function toggleProfileDD(){
-  const dd = $('profileDD');
-  const open = dd.classList.toggle('open');
-  if(open) loadProfileList();
-}
-
-function loadProfileList(){
-  loadPresets().then(presets => {
-    const list = $('pfList');
-    list.innerHTML = '';
-    if(presets.length === 0){
-      list.innerHTML = '<div style="font-size:10px;color:var(--text-secondary);text-align:center;padding:8px">No profiles yet</div>';
-      return;
-    }
-    presets.forEach(p => {
-      const el = document.createElement('div');
-      el.className = 'profile-dd-item' + (activeProfileId === p.id ? ' active' : '');
-      el.innerHTML = `
-        <span onclick="applyProfile('${p.id}')">${p.name || p.id}</span>
-        <button class="profile-dd-del" onclick="event.stopPropagation();deleteProfile('${p.id}')">&#10005;</button>
-      `;
-      list.appendChild(el);
-    });
-  });
-}
-
-async function saveProfile(){
-  const name = $('pfSaveName').value.trim();
-  if(!name){ showToast('Enter a profile name'); return; }
-  const preset = { name, effects: {...state.activeEffects}, date: new Date().toISOString() };
-  const r = await api.savePreset(preset);
-  if(r?.success){
-    $('pfSaveName').value = '';
-    activeProfileId = r.id || null;
-    $('pfName').textContent = name;
-    loadProfileList();
-    showToast('Profile saved: ' + name);
-  }
-}
-
-async function applyProfile(id){
-  const presets = await api.getPresets();
-  const preset = presets.find(p => p.id === id);
-  if(!preset) return;
-  disableAllEffects();
-  if(preset.effects) {
-    Object.entries(preset.effects).forEach(([fxId, params]) => {
-      if(params.enabled){
-        const row = $('fx-'+fxId);
-        if(row) {
-          row.classList.add('active');
-          const t = row.querySelector('.fx-toggle');
-          if(t) t.classList.add('on');
-          const slider = row.querySelector('.fx-slider');
-          if(slider) slider.value = params.value || 50;
-          const val = row.querySelector('.fx-val');
-          if(val) val.textContent = (params.value || 50) + '%';
-        }
-        state.activeEffects[fxId] = params;
-        api.toggleEffect(fxId, true);
-        api.setEffect(fxId, params);
-        if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: fxId, params });
-      }
-    });
-  }
-  activeProfileId = id;
-  $('pfName').textContent = preset.name || id;
-  $('profileDD').classList.remove('open');
-  showToast('Profile loaded: ' + (preset.name || id));
-}
-
-async function deleteProfile(id){
-  if(!confirm('Delete this profile?')) return;
-  await api.deletePreset(id);
-  if(activeProfileId === id){ activeProfileId = null; $('pfName').textContent = 'No Profile'; }
-  loadProfileList();
-  showToast('Profile deleted');
+  setTimeout(() => $('quickProfileName').focus(), 50);
 }
 
 async function loadPresets(){
-  try {
-    return await api.getPresets();
-  } catch(e) { return []; }
+  try { return await api.getPresets(); }
+  catch(e) { return []; }
 }
-
-document.addEventListener('click', e => {
-  const wrap = document.querySelector('.profile-wrap');
-  if(wrap && !wrap.contains(e.target)) $('profileDD').classList.remove('open');
-});
 
 function openSettings(){ $('settingsModal').classList.add('show'); }
 function closeModal(id){ $(id).classList.remove('show'); }
