@@ -9,7 +9,4 @@ logs/
 Thumbs.db
 desktop.ini
 settings.json
-*.onnx
-*.bin
 presets/*.json
-*.wasm

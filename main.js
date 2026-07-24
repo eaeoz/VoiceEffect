@@ -20,12 +20,6 @@ function getDataPath() {
   return app.getPath('userData');
 }
 
-function getModelsDir() {
-  const dir = path.join(getAppPath(), 'models');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
 function getPresetsDir() {
   const dir = path.join(getAppPath(), 'presets');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -79,7 +73,6 @@ function loadSettings() {
       stadium: { enabled: false, value: 50 },
       autoTune: { enabled: false, value: 50 }
     },
-    activeModel: null,
     windowBounds: null
   };
   try {
@@ -322,94 +315,6 @@ function setupIPC() {
     return { success: true };
   });
 
-  ipcMain.handle('get-models', async () => {
-    const modelsDir = getModelsDir();
-    const models = [];
-    try {
-      const files = fs.readdirSync(modelsDir);
-      for (const file of files) {
-        if (file.endsWith('.onnx') || file.endsWith('.bin')) {
-          const stat = fs.statSync(path.join(modelsDir, file));
-          const metaPath = path.join(modelsDir, file + '.json');
-          let meta = { name: file, author: 'Unknown', version: '1.0', description: '' };
-          if (fs.existsSync(metaPath)) {
-            try { meta = { ...meta, ...JSON.parse(fs.readFileSync(metaPath, 'utf-8')) }; } catch (e) {}
-          }
-          models.push({
-            id: file,
-            name: meta.name || file,
-            file: file,
-            author: meta.author,
-            version: meta.version,
-            description: meta.description,
-            size: stat.size,
-            dateAdded: stat.birthtime
-          });
-        }
-      }
-    } catch (e) { log('ERROR', 'Model listing failed: ' + e.message); }
-    return models;
-  });
-
-  ipcMain.handle('add-model', async (event, modelPath) => {
-    try {
-      const dest = path.join(getModelsDir(), path.basename(modelPath));
-      fs.copyFileSync(modelPath, dest);
-      log('INFO', 'Model added: ' + path.basename(modelPath));
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-
-  ipcMain.handle('remove-model', async (event, modelId) => {
-    try {
-      const modelPath = path.join(getModelsDir(), modelId);
-      if (fs.existsSync(modelPath)) fs.unlinkSync(modelPath);
-      const metaPath = modelPath + '.json';
-      if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath);
-      log('INFO', 'Model removed: ' + modelId);
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-
-  ipcMain.handle('save-model-meta', async (event, modelId, meta) => {
-    try {
-      const metaPath = path.join(getModelsDir(), modelId + '.json');
-      fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8');
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-
-  ipcMain.handle('load-model', async (event, modelId) => {
-    const engine = getAudioEngine();
-    if (engine) {
-      try {
-        const modelPath = path.join(getModelsDir(), modelId);
-        await engine.loadModel(modelPath);
-        log('INFO', 'Model loaded: ' + modelId);
-        return { success: true };
-      } catch (e) {
-        log('ERROR', 'Model load failed: ' + e.message);
-        return { success: false, error: e.message };
-      }
-    }
-    return { success: false, error: 'Engine not available' };
-  });
-
-  ipcMain.handle('unload-model', async () => {
-    const engine = getAudioEngine();
-    if (engine) {
-      try { engine.unloadModel(); return { success: true }; }
-      catch (e) { return { success: false, error: e.message }; }
-    }
-    return { success: false };
-  });
-
   ipcMain.handle('get-presets', async () => {
     const dir = getPresetsDir();
     const presets = [];
@@ -473,18 +378,12 @@ function setupIPC() {
   });
   ipcMain.handle('close-window', () => { if (mainWindow) mainWindow.close(); });
 
-  ipcMain.handle('get-models-dir', async () => getModelsDir());
-
   ipcMain.handle('open-external', async (event, url) => {
     if (url.startsWith('http')) shell.openExternal(url);
   });
 
   ipcMain.handle('open-logs-folder', async () => {
     shell.openPath(getLogsDir());
-  });
-
-  ipcMain.handle('open-models-folder', async () => {
-    shell.openPath(getModelsDir());
   });
 
   ipcMain.handle('import-file', async (event, options) => {

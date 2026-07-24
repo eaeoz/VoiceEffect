@@ -3,11 +3,6 @@ class VoiceProcessor extends AudioWorkletProcessor {
     super();
     this.activeEffects = {};
     this.processedCount = 0;
-    this.modelActive = false;
-    this.modelBuffer = new Float32Array(0);
-    this.modelFrameSize = 320;
-    this.pendingOutput = null;
-    this.returnBuffer = new Float32Array(0);
 
     this.port.onmessage = (e) => {
       const msg = e.data;
@@ -16,20 +11,6 @@ class VoiceProcessor extends AudioWorkletProcessor {
       if (msg.type === 'set') {
         if (!this.activeEffects[msg.name]) this.activeEffects[msg.name] = { enabled: false, value: 50 };
         this.activeEffects[msg.name].value = msg.value;
-      }
-      if (msg.type === 'model-loaded') {
-        this.modelActive = true;
-        this.modelFrameSize = msg.frameSize || 320;
-        this.modelBuffer = new Float32Array(0);
-        this.returnBuffer = new Float32Array(0);
-      }
-      if (msg.type === 'model-unloaded') {
-        this.modelActive = false;
-        this.modelBuffer = new Float32Array(0);
-        this.returnBuffer = new Float32Array(0);
-      }
-      if (msg.type === 'model-output') {
-        this.returnBuffer = new Float32Array(msg.audio);
       }
     };
   }
@@ -49,17 +30,8 @@ class VoiceProcessor extends AudioWorkletProcessor {
       this.applyEffect(name, outData, params.value || 50, len, sampleRate);
     }
 
-    if (this.modelActive) {
-      this.modelBuffer = Float32Array.from([...this.modelBuffer, ...inData]);
-      while (this.modelBuffer.length >= this.modelFrameSize) {
-        const frame = this.modelBuffer.slice(0, this.modelFrameSize);
-        this.modelBuffer = this.modelBuffer.slice(this.modelFrameSize);
-        this.port.postMessage({ type: 'model-input', audio: Array.from(frame) });
-      }
-      if (this.returnBuffer.length >= len) {
-        for (let i = 0; i < len; i++) outData[i] = this.returnBuffer[i];
-        this.returnBuffer = this.returnBuffer.slice(len);
-      }
+    for (let ch = 1; ch < output.length; ch++) {
+      output[ch].set(outData);
     }
 
     this.processedCount++;

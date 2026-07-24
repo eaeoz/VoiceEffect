@@ -15,9 +15,6 @@ class AudioEngine extends EventEmitter {
     this.sampleRate = 44100;
     this.bufferSize = 256;
     this.effectsChain = {};
-    this.activeModel = null;
-    this.modelSession = null;
-    this.onnxrt = null;
     this._deviceCache = null;
     this._deviceCacheTime = 0;
     this.stats = { processed: 0, dropped: 0, latency: 0, startTime: null };
@@ -154,21 +151,6 @@ class AudioEngine extends EventEmitter {
 
   setEffectsChain(effects) { this.effectsChain = { ...effects }; }
 
-  async loadModel(modelPath) {
-    this.modelSession = true;
-    this.activeModel = modelPath;
-    this.emit('log', 'Model loaded: ' + path.basename(modelPath));
-  }
-
-  unloadModel() {
-    if (this.modelSession) {
-      try { this.modelSession.release && this.modelSession.release(); } catch(e) {}
-      this.modelSession = null;
-      this.activeModel = null;
-      this.emit('log', 'Model unloaded');
-    }
-  }
-
   updateStats(data) {
     if (data.latency !== undefined) this.stats.latency = data.latency;
     if (data.processed !== undefined) this.stats.processed = data.processed;
@@ -185,8 +167,6 @@ class AudioEngine extends EventEmitter {
       inputVolume: this.inputVolume,
       outputVolume: this.outputVolume,
       effects: { ...this.effectsChain },
-      modelLoaded: !!this.modelSession,
-      activeModel: this.activeModel ? path.basename(this.activeModel) : null,
       stats: { ...this.stats }
     };
   }

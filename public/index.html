@@ -148,20 +148,6 @@ cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content
 background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px;transition:.2s}
 .preset-add:hover{border-color:var(--accent);color:var(--accent)}
 
-.model-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;
-border-radius:var(--radius-xs);border:1px solid var(--border);cursor:pointer;transition:.15s}
-.model-item:hover{border-color:var(--accent2);background:rgba(6,182,212,0.08)}
-.model-item.active{border-color:var(--accent2);background:rgba(6,182,212,0.15)}
-.model-info{flex:1;overflow:hidden}
-.model-name{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.model-meta{font-size:9px;color:var(--text-secondary)}
-.model-actions{display:flex;gap:2px}
-.model-btn{width:20px;height:20px;border:none;background:transparent;cursor:pointer;
-border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;transition:.15s}
-.model-btn.load{color:var(--accent2)}
-.model-btn.delete{color:var(--danger)}
-.model-btn:hover{background:rgba(255,255,255,0.1)}
-
 .bottom-bar{display:flex;gap:8px;align-items:center;flex-shrink:0;padding:4px 0}
 
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);
@@ -353,33 +339,11 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
       <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
       <button class="btn btn-secondary" onclick="resetSettings()">Reset Defaults</button>
     </div>
-    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-      <label class="form-label" style="margin-bottom:8px;display:block">ONNX Models</label>
-      <div id="settingsModelsList" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
-      <button class="preset-add" onclick="addModel()" style="margin-top:8px">+ Import Model</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modelMetaModal">
-  <div class="modal" style="position:relative">
-    <button class="modal-close" onclick="closeModal('modelMetaModal')">&#10005;</button>
-    <div class="modal-title">Model Info</div>
-    <div class="form-group"><label class="form-label">Name</label><input type="text" class="form-input" id="metaName"></div>
-    <div class="form-group"><label class="form-label">Author</label><input type="text" class="form-input" id="metaAuthor"></div>
-    <div class="form-group"><label class="form-label">Version</label><input type="text" class="form-input" id="metaVersion"></div>
-    <div class="form-group"><label class="form-label">Description</label><input type="text" class="form-input" id="metaDesc"></div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn btn-primary" onclick="saveModelMeta()">Save</button>
-      <button class="btn btn-secondary" onclick="closeModal('modelMetaModal')">Cancel</button>
-    </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<script src="../node_modules/onnxruntime-web/dist/ort.min.js"></script>
-<script src="model-inference.js"></script>
 <script>
 const EFFECTS = [
   {id:'pitchShift',name:'Pitch',icon:'&#9835;',group:'Voice'},
@@ -409,14 +373,13 @@ const EFFECTS = [
 
 let state = {
   running: false, theme: 'dark', settings: {},
-  activeEffects: {}, modelMetaEditId: null
+  activeEffects: {}
 };
 
 let audioCtx = null, micStream = null, micSource = null;
 let inputGain = null, outputGain = null, analyserIn = null, analyserOut = null;
 let workletNode = null, meterRAF = null;
 let processedCount = 0, startTime = 0;
-let modelInference = null;
 
 function $(id){return document.getElementById(id)}
 
@@ -425,7 +388,6 @@ function init(){
   renderEffectsGrid();
   enumerateBrowserDevices().then(() => loadDevices());
   loadSettings();
-  loadModels();
   loadProfileSelect();
   setupEventListeners();
   showToast('VoiceEffect ready');
@@ -671,12 +633,6 @@ async function startAudio(){
     workletNode = new AudioWorkletNode(audioCtx, 'voice-processor');
     workletNode.port.onmessage = (e) => {
       if(e.data.type === 'stats') processedCount = e.data.processed;
-      if(e.data.type === 'model-input' && modelInference && modelInference.modelLoaded) {
-        const inputData = new Float32Array(e.data.audio);
-        modelInference.process(inputData).then(outputData => {
-          workletNode.port.postMessage({ type: 'model-output', audio: Array.from(outputData) });
-        });
-      }
     };
     const activeFx = {};
     Object.entries(state.activeEffects).forEach(([id, params]) => {
@@ -705,11 +661,10 @@ async function startAudio(){
 
 function stopAudio(){
   if(micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  if(workletNode) { workletNode.port.postMessage({ type: 'model-unloaded' }); workletNode.disconnect(); workletNode = null; }
+  if(workletNode) { workletNode.disconnect(); workletNode = null; }
   if(micSource) { micSource.disconnect(); micSource = null; }
   if(audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; }
   if(meterRAF) { cancelAnimationFrame(meterRAF); meterRAF = null; }
-  if(modelInference) { modelInference.unloadModel(); modelInference = null; }
   inputGain = null; outputGain = null; analyserIn = null; analyserOut = null;
 }
 
@@ -801,97 +756,6 @@ async function resetSettings(){
   if(api) await api.saveSettings({});
   await loadSettings();
   showToast('Settings reset to defaults');
-}
-
-async function loadModels(){
-  try {
-    const models = await api.getModels();
-    const list = $('settingsModelsList');
-    list.innerHTML = '';
-    if(models.length === 0){
-      list.innerHTML = '<div style="font-size:10px;color:var(--text-secondary);text-align:center;padding:12px">No models found. Click + to import.</div>';
-      return;
-    }
-    models.forEach(m => {
-      const el = document.createElement('div');
-      el.className = 'model-item' + (state.settings.activeModel === m.id ? ' active' : '');
-      const sizeMB = (m.size / 1024 / 1024).toFixed(1);
-      el.innerHTML = `
-        <div class="model-info">
-          <div class="model-name" title="${m.file}">${m.name}</div>
-          <div class="model-meta">${m.author} v${m.version} - ${sizeMB}MB</div>
-        </div>
-        <div class="model-actions">
-          <button class="model-btn load" onclick="loadModel('${m.id}')" title="Load">&#9654;</button>
-          <button class="model-btn" onclick="editModelMeta('${m.id}','${m.name}','${m.author}','${m.version}','${(m.description||'').replace(/'/g,"\\'")}')" title="Edit" style="color:var(--warning)">&#9998;</button>
-          <button class="model-btn delete" onclick="removeModel('${m.id}')" title="Remove">&#10005;</button>
-        </div>
-      `;
-      list.appendChild(el);
-    });
-  } catch(e) { console.error('Model load error:', e); }
-}
-
-async function addModel(){
-  const file = await api.importFile({
-    title: 'Import ONNX Model',
-    filters: [{name:'ONNX Models',extensions:['onnx','bin']},{name:'All Files',extensions:['*']}]
-  });
-  if(file){
-    const r = await api.addModel(file);
-    if(r?.success){ loadModels(); showToast('Model imported'); }
-    else showToast('Import failed: ' + (r?.error||''));
-  }
-}
-
-async function removeModel(id){
-  if(!confirm('Remove this model?')) return;
-  const r = await api.removeModel(id);
-  if(r?.success){ loadModels(); showToast('Model removed'); }
-}
-
-async function loadModel(id){
-  showToast('Loading model...');
-  const r = await api.loadModel(id);
-  if(r?.success){
-    state.settings.activeModel = id;
-    loadModels();
-    showToast('Model loaded');
-    if(!modelInference) modelInference = new ModelInference();
-    const modelType = id.includes('gtcrn') ? 'gtcrn' : 'deepfilternet';
-    const basePath = '../models/';
-    const modelPath = id.includes('gtcrn') ? basePath + 'gtcrn_simple.onnx' : basePath + 'deepfilternet3_enc.onnx';
-    if(audioCtx) modelInference.inputSampleRate = audioCtx.sampleRate;
-    const ok = await modelInference.loadModel(modelPath, modelType);
-    if(ok && workletNode) {
-      workletNode.port.postMessage({ type: 'model-loaded', frameSize: modelInference.frameSize });
-      showToast('Model inference active: ' + modelType);
-    }
-  } else {
-    showToast('Model load failed: ' + (r?.error||''));
-  }
-}
-
-function editModelMeta(id,name,author,version,desc){
-  state.modelMetaEditId = id;
-  $('metaName').value = name||'';
-  $('metaAuthor').value = author||'';
-  $('metaVersion').value = version||'';
-  $('metaDesc').value = desc||'';
-  $('modelMetaModal').classList.add('show');
-}
-
-async function saveModelMeta(){
-  const meta = {
-    name: $('metaName').value,
-    author: $('metaAuthor').value,
-    version: $('metaVersion').value,
-    description: $('metaDesc').value
-  };
-  await api.saveModelMeta(state.modelMetaEditId, meta);
-  closeModal('modelMetaModal');
-  loadModels();
-  showToast('Model info saved');
 }
 
 let activeProfileId = null;

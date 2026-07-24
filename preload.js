@@ -27,15 +27,6 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
 
-  // Models
-  getModels: () => ipcRenderer.invoke('get-models'),
-  addModel: (p) => ipcRenderer.invoke('add-model', p),
-  removeModel: (id) => ipcRenderer.invoke('remove-model', id),
-  saveModelMeta: (id, meta) => ipcRenderer.invoke('save-model-meta', id, meta),
-  loadModel: (id) => ipcRenderer.invoke('load-model', id),
-  unloadModel: () => ipcRenderer.invoke('unload-model'),
-  getModelsDir: () => ipcRenderer.invoke('get-models-dir'),
-
   // Presets
   getPresets: () => ipcRenderer.invoke('get-presets'),
   savePreset: (p) => ipcRenderer.invoke('save-preset', p),
@@ -44,7 +35,6 @@ contextBridge.exposeInMainWorld('api', {
   // External
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
-  openModelsFolder: () => ipcRenderer.invoke('open-models-folder'),
   importFile: (opts) => ipcRenderer.invoke('import-file', opts),
   selectFolder: (opts) => ipcRenderer.invoke('select-folder', opts),
 
