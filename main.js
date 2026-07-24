@@ -48,6 +48,7 @@ function loadSettings() {
     showLatency: true,
     enableNoiseGate: true,
     noiseGateThreshold: 0.01,
+    adapterEnabled: false,
     effects: {
       pitchShift: { enabled: false, value: 0 },
       formantShift: { enabled: false, value: 0 },

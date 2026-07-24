@@ -422,11 +422,13 @@ let processedCount = 0, startTime = 0;
 
 function $(id){return document.getElementById(id)}
 
-function init(){
+async function init(){
   loadTheme();
   renderEffectsGrid();
-  enumerateBrowserDevices().then(() => loadDevices());
-  loadSettings();
+  await loadSettings();
+  await enumerateBrowserDevices();
+  loadDevices();
+  updateAdapterUI();
   loadProfileSelect();
   setupEventListeners();
   checkAdapterStatus();
@@ -521,12 +523,15 @@ async function toggleAdapter(){
   }
   
   state.adapterEnabled = !state.adapterEnabled;
+  state.settings.adapterEnabled = state.adapterEnabled;
+  api.saveSettings(state.settings);
   updateAdapterUI();
   
   if(state.adapterEnabled) {
     await selectVirtualOutputDevice();
     showToast('Virtual output enabled');
   } else {
+    if(state.settings.outputDevice) $('outputDevice').value = state.settings.outputDevice;
     showToast('Virtual output disabled');
     if(state.running) {
       await changeOutputDevice();
@@ -547,7 +552,6 @@ async function selectVirtualOutputDevice(){
       
       if(virtualDevice) {
         $('outputDevice').value = virtualDevice.deviceId;
-        state.settings.outputDevice = virtualDevice.deviceId;
         if(api) api.setOutputDevice(virtualDevice.deviceId);
         
         if(state.running && audioCtx && audioCtx.setSinkId) {
@@ -712,8 +716,8 @@ async function loadDevices(){
     await enumerateBrowserDevices();
     const inputSel = $('inputDevice');
     const outputSel = $('outputDevice');
-    const prevInput = inputSel.value;
-    const prevOutput = outputSel.value;
+    const savedInput = state.settings.inputDevice;
+    const savedOutput = state.settings.outputDevice;
     inputSel.innerHTML = '';
     outputSel.innerHTML = '';
     if(browserDeviceIds.inputs.length === 0){
@@ -732,15 +736,15 @@ async function loadDevices(){
         outputSel.innerHTML += `<option value="${d.deviceId}">${label}</option>`;
       });
     }
-    if(prevInput && inputSel.querySelector(`option[value="${prevInput}"]`)) inputSel.value = prevInput;
-    if(prevOutput && outputSel.querySelector(`option[value="${prevOutput}"]`)) outputSel.value = prevOutput;
+    if(savedInput && inputSel.querySelector(`option[value="${savedInput}"]`)) inputSel.value = savedInput;
+    if(savedOutput && outputSel.querySelector(`option[value="${savedOutput}"]`)) outputSel.value = savedOutput;
   } catch(e) { console.error('Device load error:', e); }
 }
 
 async function changeInputDevice(){
   const id = $('inputDevice').value;
   state.settings.inputDevice = id;
-  if(api) api.setInputDevice(id);
+  if(api) { api.setInputDevice(id); api.saveSettings(state.settings); }
   if(state.running) { stopAudio(); const ok = await startAudio(); if(!ok){ await api.stopAudio(); state.running = false; $('powerBtn').classList.remove('active'); $('powerStatus').textContent = 'OFFLINE'; $('powerStatus').classList.remove('active'); } }
 }
 
@@ -752,7 +756,7 @@ async function changeOutputDevice(){
   
   const id = $('outputDevice').value;
   state.settings.outputDevice = id;
-  if(api) api.setOutputDevice(id);
+  if(api) { api.setOutputDevice(id); api.saveSettings(state.settings); }
   if(state.running && audioCtx && audioCtx.setSinkId){
     try { await audioCtx.setSinkId(id === 'default' ? '' : id); } catch(e){ console.warn('setSinkId failed:', e); }
   }
@@ -917,7 +921,7 @@ function startMeterLoop(){
     analyserOut.getFloatTimeDomainData(bufOut);
     sum=0; for(let i=0;i<bufOut.length;i++) sum+=bufOut[i]*bufOut[i];
     const rmsOut = Math.sqrt(sum/bufOut.length);
-    const pctOut = Math.min(100, Math.round(rmsOut*300));
+    const pctOut = Math.min(100, Math.round(rmsOut*150));
     $('outputMeter').style.width = pctOut+'%';
     $('outputMeter').className = 'meter-bar'+(pctOut>85?' warn':'');
     $('outputLevelVal').textContent = pctOut+'%';
@@ -938,6 +942,7 @@ async function loadSettings(){
   try {
     const s = await api.getSettings();
     state.settings = s;
+    state.adapterEnabled = s.adapterEnabled || false;
     if($('inputVol')){ $('inputVol').value = s.inputVolume||80; $('inputVolVal').textContent=(s.inputVolume||80)+'%'; }
     if($('outputVol')){ $('outputVol').value = s.outputVolume||80; $('outputVolVal').textContent=(s.outputVolume||80)+'%'; }
     if(s.inputDevice != null) $('inputDevice').value = s.inputDevice;
@@ -965,12 +970,14 @@ async function loadSettings(){
         }
       });
     }
+    updateAdapterUI();
   } catch(e) { console.error('Settings load error:', e); }
 }
 
 async function saveSettings(){
   const s = {
     ...state.settings,
+    adapterEnabled: state.adapterEnabled,
     sampleRate: parseInt($('setSampleRate').value),
     bufferSize: parseInt($('setBufferSize').value),
     language: $('setLanguage').value,
