@@ -1,154 +1,202 @@
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
-function createIcon() {
-  const size = 256;
-  const pixels = new Uint8Array(size * size * 4);
+const SIZE = 256;
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-  function setPixel(x, y, r, g, b, a = 255) {
+function createPNG() {
+  const pixels = Buffer.alloc(SIZE * SIZE * 4);
+  const cx = SIZE / 2, cy = SIZE / 2;
+
+  function setPixel(x, y, r, g, b, a) {
     x = Math.round(x); y = Math.round(y);
-    if (x < 0 || x >= size || y < 0 || y >= size) return;
-    const i = (y * size + x) * 4;
-    const srcA = a / 255;
-    const dstA = pixels[i + 3] / 255;
+    if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
+    const idx = (y * SIZE + x) * 4;
+    const srcA = pixels[idx + 3] / 255;
+    const dstA = a / 255;
     const outA = srcA + dstA * (1 - srcA);
     if (outA > 0) {
-      pixels[i] = Math.round((r * srcA + pixels[i] * dstA * (1 - srcA)) / outA);
-      pixels[i + 1] = Math.round((g * srcA + pixels[i + 1] * dstA * (1 - srcA)) / outA);
-      pixels[i + 2] = Math.round((b * srcA + pixels[i + 2] * dstA * (1 - srcA)) / outA);
-      pixels[i + 3] = Math.round(outA * 255);
+      pixels[idx] = Math.round((pixels[idx] * srcA + r * dstA * (1 - srcA)) / outA);
+      pixels[idx + 1] = Math.round((pixels[idx + 1] * srcA + g * dstA * (1 - srcA)) / outA);
+      pixels[idx + 2] = Math.round((pixels[idx + 2] * srcA + b * dstA * (1 - srcA)) / outA);
+      pixels[idx + 3] = Math.round(outA * 255);
     }
   }
 
-  function fillCircle(cx, cy, radius, r, g, b) {
+  function fillCircle(cx, cy, radius, r, g, b, a) {
     for (let y = -radius; y <= radius; y++) {
       for (let x = -radius; x <= radius; x++) {
-        const dist = Math.sqrt(x * x + y * y);
-        if (dist <= radius) {
-          const alpha = dist > radius - 1 ? Math.max(0, (radius - dist) * 255) : 255;
-          setPixel(cx + x, cy + y, r, g, b, alpha);
+        if (x * x + y * y <= radius * radius) {
+          setPixel(cx + x, cy + y, r, g, b, a);
         }
       }
     }
   }
 
-  function fillRect(x1, y1, w, h, r, g, b) {
-    for (let y = y1; y < y1 + h; y++) {
-      for (let x = x1; x < x1 + w; x++) {
-        setPixel(x, y, r, g, b);
+  function fillRoundedRect(x, y, w, h, rad, r, g, b, a) {
+    for (let py = y; py < y + h; py++) {
+      for (let px = x; px < x + w; px++) {
+        let inRect = false;
+        if (px >= x + rad && px <= x + w - rad && py >= y && py <= y + h) inRect = true;
+        if (py >= y + rad && py <= y + h - rad && px >= x && px <= x + w) inRect = true;
+        if (!inRect) {
+          const corners = [
+            [x + rad, y + rad], [x + w - rad, y + rad],
+            [x + rad, y + h - rad], [x + w - rad, y + h - rad]
+          ];
+          for (const [ccx, ccy] of corners) {
+            const dx = px - ccx, dy = py - ccy;
+            if (dx * dx + dy * dy <= rad * rad) { inRect = true; break; }
+          }
+        }
+        if (inRect) setPixel(px, py, r, g, b, a);
       }
     }
   }
 
-  const cx = 128, cy = 128;
-
-  fillCircle(cx, cy, 110, 20, 20, 50);
-  fillCircle(cx, cy, 105, 30, 15, 80);
-
-  fillCircle(cx, cy - 10, 55, 40, 15, 110);
-  fillRect(cx - 15, cy + 10, 30, 50, 40, 15, 110);
-  fillRect(cx - 25, cy + 55, 50, 12, 40, 15, 110);
-
-  fillCircle(cx, cy - 10, 35, 124, 58, 237);
-  fillRect(cx - 8, cy + 10, 16, 40, 124, 58, 237);
-  fillRect(cx - 18, cy + 45, 36, 8, 124, 58, 237);
-
-  for (let i = 0; i < 3; i++) {
-    const r = 25 + i * 12;
-    const alpha = 200 - i * 50;
-    for (let a = -40; a <= 40; a += 2) {
-      const rad = (a * Math.PI) / 180;
-      const px = cx + Math.cos(rad) * r;
-      const py = cy - 20 + Math.sin(rad) * r * 0.6;
-      setPixel(Math.round(px), Math.round(py), 6, 182, 212, alpha);
+  // Bright gradient background circle - visible on both light and dark taskbars
+  for (let py = 0; py < SIZE; py++) {
+    for (let px = 0; px < SIZE; px++) {
+      const dx = px - cx, dy = py - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxR = SIZE / 2 - 4;
+      if (dist <= maxR) {
+        const t = py / SIZE;
+        const r = Math.round(90 + t * 40);
+        const g = Math.round(60 + t * 10);
+        const b = Math.round(220 - t * 30);
+        setPixel(px, py, r, g, b, 255);
+      }
     }
   }
 
-  return pixels;
+  // Dark outline ring for contrast on any background
+  for (let py = 0; py < SIZE; py++) {
+    for (let px = 0; px < SIZE; px++) {
+      const dx = px - cx, dy = py - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxR = SIZE / 2 - 4;
+      if (dist > maxR - 5 && dist <= maxR) {
+        setPixel(px, py, 20, 20, 30, 255);
+      }
+    }
+  }
+
+  // Microphone outline (dark, drawn first)
+  const micW = 24, micH = 60;
+  fillRoundedRect(cx - micW / 2 - 3, cy - micH / 2 - 10 - 3, micW + 6, micH + 6, 14, 20, 20, 30, 255);
+
+  // Microphone body (white)
+  fillRoundedRect(cx - micW / 2, cy - micH / 2 - 10, micW, micH, 12, 255, 255, 255, 255);
+
+  // Microphone holder arc - outline then white
+  const arcR = 38;
+  const arcThickness = 8;
+  for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.02) {
+    const ax = cx + Math.cos(angle) * arcR;
+    const ay = cy - 10 + Math.sin(angle) * (arcR * 0.8);
+    fillCircle(ax, ay, arcThickness / 2 + 3, 20, 20, 30, 255);
+  }
+  for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.02) {
+    const ax = cx + Math.cos(angle) * arcR;
+    const ay = cy - 10 + Math.sin(angle) * (arcR * 0.8);
+    fillCircle(ax, ay, arcThickness / 2, 255, 255, 255, 255);
+  }
+
+  // Stand - outline then white
+  for (let y = cy + 20; y <= cy + 48; y++) {
+    fillCircle(cx, y, 5, 20, 20, 30, 255);
+  }
+  for (let y = cy + 20; y <= cy + 48; y++) {
+    fillCircle(cx, y, 3, 255, 255, 255, 255);
+  }
+
+  // Base - outline then white
+  fillRoundedRect(cx - 22, cy + 44, 44, 10, 4, 20, 20, 30, 255);
+  fillRoundedRect(cx - 20, cy + 46, 40, 6, 3, 255, 255, 255, 255);
+
+  // Sound waves - thicker and brighter white
+  const waveR1 = 50, waveR2 = 62;
+  for (let angle = -0.6; angle <= 0.6; angle += 0.03) {
+    fillCircle(cx + Math.cos(angle) * waveR1, cy - 10 + Math.sin(angle) * waveR1 * 0.6, 3, 20, 20, 30, 220);
+    fillCircle(cx + Math.cos(angle) * waveR2, cy - 10 + Math.sin(angle) * waveR2 * 0.6, 3, 20, 20, 30, 180);
+  }
+  for (let angle = -0.6; angle <= 0.6; angle += 0.03) {
+    fillCircle(cx + Math.cos(angle) * waveR1, cy - 10 + Math.sin(angle) * waveR1 * 0.6, 2, 255, 255, 255, 255);
+    fillCircle(cx + Math.cos(angle) * waveR2, cy - 10 + Math.sin(angle) * waveR2 * 0.6, 2, 255, 255, 255, 220);
+  }
+
+  return encodePNG(pixels, SIZE, SIZE);
 }
 
 function encodePNG(pixels, width, height) {
   function crc32(buf) {
-    let c = 0xFFFFFFFF;
-    const table = new Int32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let v = n;
-      for (let k = 0; k < 8; k++) v = v & 1 ? 0xEDB88320 ^ (v >>> 1) : v >>> 1;
-      table[n] = v;
+    let table = new Int32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      table[i] = c;
     }
-    for (let i = 0; i < buf.length; i++) c = table[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
-    return (c ^ 0xFFFFFFFF) >>> 0;
+    let crc = -1;
+    for (let i = 0; i < buf.length; i++) crc = table[(crc ^ buf[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ -1) >>> 0;
   }
 
-  function adler32(buf) {
-    let a = 1, b = 0;
-    for (let i = 0; i < buf.length; i++) {
-      a = (a + buf[i]) % 65521;
-      b = (b + a) % 65521;
-    }
-    return ((b << 16) | a) >>> 0;
-  }
-
-  const rawData = [];
-  for (let y = 0; y < height; y++) {
-    rawData.push(0);
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      rawData.push(pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]);
-    }
-  }
-
-  const rawBuf = Buffer.from(rawData);
-  const zlib = require('zlib');
-  const compressed = zlib.deflateSync(rawBuf);
-
-  const chunks = [];
-
-  function writeChunk(type, data) {
+  function chunk(type, data) {
     const len = Buffer.alloc(4);
     len.writeUInt32BE(data.length);
-    const typeB = Buffer.from(type, 'ascii');
-    const crcInput = Buffer.concat([typeB, data]);
-    const crcVal = Buffer.alloc(4);
-    crcVal.writeUInt32BE(crc32(crcInput));
-    chunks.push(len, typeB, data, crcVal);
+    const typeData = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(typeData));
+    return Buffer.concat([len, typeData, crc]);
   }
+
+  const rawData = Buffer.alloc(height * (1 + width * 4));
+  for (let y = 0; y < height; y++) {
+    rawData[y * (1 + width * 4)] = 0;
+    pixels.copy(rawData, y * (1 + width * 4) + 1, y * width * 4, (y + 1) * width * 4);
+  }
+
+  const compressed = zlib.deflateSync(rawData);
 
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
-  writeChunk('IHDR', ihdr);
-  writeChunk('IDAT', compressed);
-  writeChunk('IEND', Buffer.alloc(0));
 
   const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  return Buffer.concat([sig, ...chunks]);
+
+  return Buffer.concat([
+    sig,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', compressed),
+    chunk('IEND', Buffer.alloc(0))
+  ]);
 }
 
-function encodeICO(pngBuffer) {
-  const icoHeader = Buffer.alloc(6);
-  icoHeader.writeUInt16LE(0, 0);
-  icoHeader.writeUInt16LE(1, 2);
-  icoHeader.writeUInt16LE(1, 4);
+function createICO(pngBuffer) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+
   const dirEntry = Buffer.alloc(16);
   dirEntry[0] = 0;
   dirEntry[1] = 0;
-  dirEntry.writeUInt16LE(256, 2);
-  dirEntry.writeUInt16LE(256, 4);
-  dirEntry[6] = 0;
-  dirEntry[7] = 0;
-  dirEntry.writeUInt16LE(1, 8);
-  dirEntry.writeUInt32LE(pngBuffer.length, 12);
-  return Buffer.concat([icoHeader, dirEntry, pngBuffer]);
+  dirEntry[2] = 0;
+  dirEntry[3] = 0;
+  dirEntry.writeUInt16LE(1, 4);
+  dirEntry.writeUInt16LE(32, 6);
+  dirEntry.writeUInt32LE(pngBuffer.length, 8);
+  dirEntry.writeUInt32LE(22, 12);
+
+  return Buffer.concat([header, dirEntry, pngBuffer]);
 }
 
-const pixels = createIcon();
-const png = encodePNG(pixels, 256, 256);
-const ico = encodeICO(png);
-
-const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+console.log('Generating icon...');
+const png = createPNG();
 fs.writeFileSync(path.join(dataDir, 'icon.png'), png);
-fs.writeFileSync(path.join(dataDir, 'icon.ico'), ico);
-console.log('Icons generated: data/icon.png, data/icon.ico');
+fs.writeFileSync(path.join(dataDir, 'icon.ico'), createICO(png));
+console.log('Icons created: data/icon.png, data/icon.ico');

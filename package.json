@@ -7,9 +7,10 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "build": "npx electron-builder --win --x64 --publish never",
-    "build:portable": "npx electron-builder --win portable --x64 --publish never",
-    "build:setup": "npx electron-builder --win nsis --x64 --publish never"
+    "build": "npm run build:icon && npx electron-builder --win --x64 --publish never",
+    "build:portable": "npm run build:icon && npx electron-builder --win portable --x64 --publish never",
+    "build:setup": "npm run build:icon && npx electron-builder --win nsis --x64 --publish never",
+    "build:icon": "node create-icon.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
@@ -34,6 +35,10 @@
       {
         "from": "presets/",
         "to": "presets/"
+      },
+      {
+        "from": "data/",
+        "to": "data/"
       }
     ],
     "win": {
@@ -47,7 +52,15 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "data/icon.ico",
+      "uninstallerIcon": "data/icon.ico",
+      "installerHeaderIcon": "data/icon.ico",
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "shortcutName": "VoiceEffect"
+    },
+    "portable": {
+      "artifactName": "${productName}_portable_${version}.${ext}"
     }
   }
 }
