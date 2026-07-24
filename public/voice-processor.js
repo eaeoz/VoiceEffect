@@ -3,7 +3,10 @@ class VoiceProcessor extends AudioWorkletProcessor {
     super();
     this.activeEffects = {};
     this.processedCount = 0;
-
+    
+    // Persistent state container for all effects
+    this.state = {};
+    
     this.port.onmessage = (e) => {
       const msg = e.data;
       if (msg.type === 'effects') this.activeEffects = msg.effects;
@@ -13,6 +16,23 @@ class VoiceProcessor extends AudioWorkletProcessor {
         this.activeEffects[msg.name].value = msg.value;
       }
     };
+  }
+
+  getState(name) {
+    if (!this.state[name]) {
+      this.state[name] = {};
+    }
+    return this.state[name];
+  }
+
+  getDelayBuffer(name, sizeInSeconds) {
+    const st = this.getState(name);
+    if (!st.delayBuffer) {
+      st.size = Math.floor(sampleRate * sizeInSeconds);
+      st.delayBuffer = new Float32Array(st.size);
+      st.idx = 0;
+    }
+    return st;
   }
 
   process(inputs, outputs, parameters) {
@@ -44,57 +64,98 @@ class VoiceProcessor extends AudioWorkletProcessor {
   applyEffect(name, data, value, len, sr) {
     switch (name) {
       case 'pitchShift': {
+        const st = this.getDelayBuffer(name, 0.1);
         const factor = Math.pow(2, (value - 50) / 24);
         const tmp = new Float32Array(len);
         for (let i = 0; i < len; i++) {
-          const s = i * factor;
-          const idx = Math.floor(s);
-          const frac = s - idx;
-          tmp[i] = (idx < len ? data[idx] : 0) * (1 - frac) + (idx + 1 < len ? data[idx + 1] : 0) * frac;
+          st.delayBuffer[st.idx] = data[i];
+          st.idx = (st.idx + 1) % st.size;
+          
+          st.readIdx = (st.readIdx || 0) + factor;
+          if (st.readIdx >= st.size) st.readIdx -= st.size;
+          
+          const r1 = Math.floor(st.readIdx);
+          const r2 = (r1 + 1) % st.size;
+          const frac = st.readIdx - r1;
+          tmp[i] = st.delayBuffer[r1] * (1 - frac) + st.delayBuffer[r2] * frac;
         }
         data.set(tmp);
         break;
       }
       case 'formantShift': {
+        const st = this.getState(name);
+        if (!st.hist) st.hist = new Float32Array(4);
         const shift = (value - 50) / 50;
         const tmp = new Float32Array(len);
-        for (let i = 2; i < len - 2; i++) {
-          const f = data[i] * 0.6 + (data[i - 1] + data[i + 1]) * 0.15 + (data[i - 2] + data[i + 2]) * 0.05;
-          tmp[i] = data[i] + shift * (data[i] - f) * 0.5;
+        
+        for (let i = 0; i < len; i++) {
+          const d_i = data[i];
+          const d_m1 = i >= 1 ? data[i-1] : st.hist[3];
+          const d_m2 = i >= 2 ? data[i-2] : st.hist[i===1?3:2];
+          const d_p1 = i + 1 < len ? data[i+1] : d_i;
+          const d_p2 = i + 2 < len ? data[i+2] : d_p1;
+          
+          const f = d_i * 0.6 + (d_m1 + d_p1) * 0.15 + (d_m2 + d_p2) * 0.05;
+          tmp[i] = d_i + shift * (d_i - f) * 0.5;
         }
-        tmp[0] = data[0]; tmp[1] = data[1]; tmp[len - 2] = data[len - 2]; tmp[len - 1] = data[len - 1];
+        
+        st.hist[0] = len > 3 ? data[len-4] : 0;
+        st.hist[1] = len > 2 ? data[len-3] : 0;
+        st.hist[2] = len > 1 ? data[len-2] : 0;
+        st.hist[3] = len > 0 ? data[len-1] : 0;
         data.set(tmp);
         break;
       }
       case 'reverb': {
         const d = value / 100;
         const delays = [1557, 1617, 1491, 1422, 1277, 1356];
-        const tmp = new Float32Array(len);
+        const maxDelay = Math.max(...delays);
+        const st = this.getDelayBuffer(name, maxDelay / sr + 0.1);
+        
         for (let i = 0; i < len; i++) {
           let s = data[i] * (1 - d * 0.4);
-          for (const dl of delays) { if (i >= dl) s += data[i - dl] * d * 0.06; }
-          tmp[i] = s;
+          for (const dl of delays) {
+            let readIdx = st.idx - dl;
+            if (readIdx < 0) readIdx += st.size;
+            s += st.delayBuffer[readIdx] * d * 0.06;
+          }
+          st.delayBuffer[st.idx] = data[i] + (s - data[i]) * 0.5;
+          st.idx = (st.idx + 1) % st.size;
+          data[i] = s;
         }
-        data.set(tmp);
         break;
       }
       case 'echo': {
-        const delay = Math.round(sr * 0.3);
+        const delaySamples = Math.round(sr * 0.3);
+        const st = this.getDelayBuffer(name, 0.4);
         const fb = value / 120;
         for (let i = 0; i < len; i++) {
-          if (i >= delay) data[i] += data[i - delay] * fb;
+          let readIdx = st.idx - delaySamples;
+          if (readIdx < 0) readIdx += st.size;
+          
+          const delayed = st.delayBuffer[readIdx];
+          st.delayBuffer[st.idx] = data[i] + delayed * fb;
+          data[i] += delayed * fb;
+          st.idx = (st.idx + 1) % st.size;
         }
         break;
       }
       case 'chorus': {
         const depth = value / 100;
-        const tmp = new Float32Array(len);
+        const st = this.getDelayBuffer(name, 0.1);
+        st.phase = st.phase || 0;
+        
         for (let i = 0; i < len; i++) {
-          const m = Math.sin(2 * Math.PI * 1.5 * i / sr) * depth * 100;
-          const idx = Math.max(0, Math.min(len - 1, Math.round(i + m)));
-          tmp[i] = (data[i] + data[idx]) * 0.5;
+          st.delayBuffer[st.idx] = data[i];
+          
+          const mod = Math.sin(st.phase) * depth * 100;
+          let readIdx = st.idx - Math.round(150 + mod);
+          while (readIdx < 0) readIdx += st.size;
+          
+          data[i] = (data[i] + st.delayBuffer[readIdx]) * 0.5;
+          st.idx = (st.idx + 1) % st.size;
+          st.phase += 2 * Math.PI * 1.5 / sr;
         }
-        data.set(tmp);
         break;
       }
       case 'compressor': {
@@ -115,28 +176,31 @@ class VoiceProcessor extends AudioWorkletProcessor {
       }
       case 'equalizer': {
         const gain = (value - 50) / 50 * 6;
-        let prev = 0;
+        const st = this.getState(name);
+        st.prev = st.prev || 0;
         for (let i = 0; i < len; i++) {
-          prev += 0.1 * (data[i] - prev);
-          data[i] += prev * gain / 6;
+          st.prev += 0.1 * (data[i] - st.prev);
+          data[i] += st.prev * gain / 6;
         }
         break;
       }
       case 'bassBoost': {
         const g = value / 100 * 12;
-        let prev = 0;
+        const st = this.getState(name);
+        st.prev = st.prev || 0;
         for (let i = 0; i < len; i++) {
-          prev = 0.95 * prev + 0.05 * data[i];
-          data[i] += prev * g / 12;
+          st.prev = 0.95 * st.prev + 0.05 * data[i];
+          data[i] += st.prev * g / 12;
         }
         break;
       }
       case 'trebleBoost': {
         const g = value / 100 * 12;
-        let prev = 0;
+        const st = this.getState(name);
+        st.prev = st.prev || 0;
         for (let i = 0; i < len; i++) {
-          const h = data[i] - (0.05 * prev + 0.95 * data[i]);
-          prev = data[i];
+          const h = data[i] - (0.05 * st.prev + 0.95 * data[i]);
+          st.prev = data[i];
           data[i] += h * g / 12;
         }
         break;
@@ -150,127 +214,144 @@ class VoiceProcessor extends AudioWorkletProcessor {
       }
       case 'radio': {
         const bp = value / 100;
-        let hp = 0, lp = 0, bpf = 0;
+        const st = this.getState(name);
+        st.hp = st.hp || 0;
+        st.lp = st.lp || 0;
+        st.prev = st.prev || 0;
         for (let i = 0; i < len; i++) {
-          hp = (0.9 + bp * 0.08) * (hp + data[i] - (i > 0 ? data[i - 1] : 0));
-          lp = (0.02 + bp * 0.08) * data[i] + (1 - 0.02 - bp * 0.08) * lp;
-          bpf = hp - lp;
+          st.hp = (0.9 + bp * 0.08) * (st.hp + data[i] - st.prev);
+          st.lp = (0.02 + bp * 0.08) * data[i] + (1 - 0.02 - bp * 0.08) * st.lp;
+          const bpf = st.hp - st.lp;
+          st.prev = data[i];
           data[i] = Math.tanh(bpf / 0.3) * 0.3 * 3;
         }
         break;
       }
       case 'telephone': {
-        let hp = 0, lp = 0;
+        const st = this.getState(name);
+        st.hp = st.hp || 0;
+        st.lp = st.lp || 0;
+        st.prev = st.prev || 0;
         for (let i = 0; i < len; i++) {
-          hp = 0.85 * (hp + data[i] - (i > 0 ? data[i - 1] : 0));
-          lp = 0.15 * data[i] + 0.85 * lp;
-          data[i] = Math.tanh((hp + lp) / 0.24) * 0.24 * 2.5;
+          st.hp = 0.85 * (st.hp + data[i] - st.prev);
+          st.lp = 0.15 * data[i] + 0.85 * st.lp;
+          st.prev = data[i];
+          data[i] = Math.tanh((st.hp + st.lp) / 0.24) * 0.24 * 2.5;
         }
         break;
       }
       case 'robot': {
         const mf = 50 + (value / 100) * 200;
+        const st = this.getState(name);
+        st.phase = st.phase || 0;
         for (let i = 0; i < len; i++) {
-          data[i] *= Math.sin(2 * Math.PI * mf * i / sr) * 2;
+          data[i] *= Math.sin(st.phase) * 2;
+          st.phase += 2 * Math.PI * mf / sr;
         }
         break;
       }
       case 'alien': {
         const mf = 5 + (value / 100) * 50;
         const sh = (value - 50) / 50 * 200;
-        const tmp = new Float32Array(len);
+        const st = this.getDelayBuffer(name, 0.2);
+        st.phase = st.phase || 0;
+        
         for (let i = 0; i < len; i++) {
-          const m = Math.sin(2 * Math.PI * mf * i / sr);
-          const idx = Math.max(0, Math.min(len - 1, i + Math.round(m * 50 + sh)));
-          tmp[i] = data[idx];
+          st.delayBuffer[st.idx] = data[i];
+          
+          const m = Math.sin(st.phase);
+          let readIdx = st.idx - Math.round(1000 + m * 50 + sh);
+          while (readIdx < 0) readIdx += st.size;
+          
+          data[i] = st.delayBuffer[readIdx];
+          st.idx = (st.idx + 1) % st.size;
+          st.phase += 2 * Math.PI * mf / sr;
         }
-        data.set(tmp);
         break;
       }
-      case 'monster': {
-        const f = 1 - (value / 100) * 0.5;
-        const tmp = new Float32Array(len);
-        for (let i = 0; i < len; i++) {
-          tmp[i] = (data[Math.floor(i * f)] || 0) * 1.3;
-        }
-        data.set(tmp);
-        break;
-      }
-      case 'childVoice': {
-        const f = 1 + (value / 100) * 0.8;
-        const tmp = new Float32Array(len);
-        for (let i = 0; i < len; i++) {
-          tmp[i] = (data[Math.floor(i * f)] || 0) * 0.8;
-        }
-        data.set(tmp);
-        break;
-      }
+      case 'monster':
+      case 'childVoice':
+      case 'chipmunk':
       case 'deepVoice': {
-        const f = 1 - (value / 100) * 0.4;
-        let prev = 0;
+        const st = this.getDelayBuffer(name, 0.2);
+        let factor = 1;
+        if (name === 'monster') factor = 1 - (value / 100) * 0.5;
+        if (name === 'childVoice') factor = 1 + (value / 100) * 0.8;
+        if (name === 'deepVoice') factor = 1 - (value / 100) * 0.4;
+        if (name === 'chipmunk') factor = 1 + (value / 100) * 1.5;
+        
         const tmp = new Float32Array(len);
         for (let i = 0; i < len; i++) {
-          const s = data[Math.floor(i * f)] || 0;
-          prev = 0.97 * prev + 0.03 * s;
-          tmp[i] = s * 0.5 + prev * 1.5;
-        }
-        data.set(tmp);
-        break;
-      }
-      case 'chipmunk': {
-        const f = 1 + (value / 100) * 1.5;
-        const tmp = new Float32Array(len);
-        for (let i = 0; i < len; i++) {
-          tmp[i] = (data[Math.floor(i * f)] || 0) * 0.7;
-        }
-        data.set(tmp);
-        break;
-      }
-      case 'hall': {
-        const delays = [2963, 3857, 4219, 5433];
-        const dc = value / 200;
-        const tmp = new Float32Array(len);
-        for (let i = 0; i < len; i++) {
-          let s = data[i] * 0.7;
-          for (const d of delays) { if (i >= d) s += data[i - d] * dc; }
+          st.delayBuffer[st.idx] = data[i];
+          st.idx = (st.idx + 1) % st.size;
+          
+          st.readIdx = (st.readIdx || 0) + factor;
+          if (st.readIdx >= st.size) st.readIdx -= st.size;
+          
+          const r1 = Math.floor(st.readIdx);
+          const r2 = (r1 + 1) % st.size;
+          const frac = st.readIdx - r1;
+          
+          let s = st.delayBuffer[r1] * (1 - frac) + st.delayBuffer[r2] * frac;
+          
+          if (name === 'monster') s *= 1.3;
+          if (name === 'childVoice') s *= 0.8;
+          if (name === 'chipmunk') s *= 0.7;
+          if (name === 'deepVoice') {
+            st.prev = 0.97 * (st.prev || 0) + 0.03 * s;
+            s = s * 0.5 + st.prev * 1.5;
+          }
           tmp[i] = s;
         }
         data.set(tmp);
         break;
       }
-      case 'cave': {
-        const delays = [1200, 2400, 3600, 4800, 6000];
-        const dc = value / 150;
-        const tmp = new Float32Array(len);
-        for (let i = 0; i < len; i++) {
-          let s = data[i] * 0.5;
-          for (const d of delays) { if (i >= d) s += data[i - d] * dc; }
-          tmp[i] = s;
-        }
-        data.set(tmp);
-        break;
-      }
+      case 'hall':
+      case 'cave':
       case 'stadium': {
-        const delays = [5000, 10000, 15000, 20000, 25000];
-        const dc = value / 250;
-        const tmp = new Float32Array(len);
-        for (let i = 0; i < len; i++) {
-          let s = data[i] * 0.6;
-          for (const d of delays) { if (i >= d) s += data[i - d] * dc; }
-          tmp[i] = s;
+        let delays = [];
+        let dc = 0;
+        let mix = 0;
+        if (name === 'hall') {
+          delays = [2963, 3857, 4219, 5433];
+          dc = value / 200;
+          mix = 0.7;
+        } else if (name === 'cave') {
+          delays = [1200, 2400, 3600, 4800, 6000];
+          dc = value / 150;
+          mix = 0.5;
+        } else {
+          delays = [5000, 10000, 15000, 20000, 25000];
+          dc = value / 250;
+          mix = 0.6;
         }
-        data.set(tmp);
+        
+        const maxDelay = Math.max(...delays);
+        const st = this.getDelayBuffer(name, maxDelay / sr + 0.1);
+        
+        for (let i = 0; i < len; i++) {
+          let s = data[i] * mix;
+          for (const dl of delays) {
+            let readIdx = st.idx - dl;
+            if (readIdx < 0) readIdx += st.size;
+            s += st.delayBuffer[readIdx] * dc;
+          }
+          st.delayBuffer[st.idx] = data[i] + (s - data[i]) * 0.3;
+          st.idx = (st.idx + 1) % st.size;
+          data[i] = s;
+        }
         break;
       }
       case 'autoTune': {
         const corr = value / 100;
-        let prev = 0;
+        const st = this.getState(name);
+        st.prev = st.prev || 0;
         for (let i = 0; i < len; i++) {
-          const pitch = data[i] - prev;
+          const pitch = data[i] - st.prev;
           const step = 0.01;
           const corrected = Math.round(pitch / step) * step;
           data[i] = data[i] * (1 - corr) + corrected * corr;
-          prev = data[i];
+          st.prev = data[i];
         }
         break;
       }
