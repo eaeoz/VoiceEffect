@@ -460,6 +460,7 @@ async function init(){
   setupEventListeners();
   checkAdapterStatus();
   showToast('VoiceEffect ready');
+  if(state.settings.autoStart) togglePower();
 }
 
 function loadTheme(){
