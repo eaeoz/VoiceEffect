@@ -800,6 +800,7 @@ function changeInputVolume(){
   $('inputVolVal').textContent = v + '%';
   if(inputGain) inputGain.gain.value = v / 100;
   if(api) api.setInputVolume(parseInt(v));
+  if(state.settings){ state.settings.inputVolume = parseInt(v); if(api) api.saveSettings(state.settings); }
 }
 
 function changeOutputVolume(){
@@ -807,6 +808,7 @@ function changeOutputVolume(){
   $('outputVolVal').textContent = v + '%';
   if(outputGain) outputGain.gain.value = v / 100;
   if(api) api.setOutputVolume(parseInt(v));
+  if(state.settings){ state.settings.outputVolume = parseInt(v); if(api) api.saveSettings(state.settings); }
 }
 
 async function togglePower(){
