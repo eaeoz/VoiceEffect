@@ -921,7 +921,7 @@ function startMeterLoop(){
     analyserOut.getFloatTimeDomainData(bufOut);
     sum=0; for(let i=0;i<bufOut.length;i++) sum+=bufOut[i]*bufOut[i];
     const rmsOut = Math.sqrt(sum/bufOut.length);
-    const pctOut = Math.min(100, Math.round(rmsOut*150));
+    const pctOut = Math.min(100, Math.round(rmsOut*100));
     $('outputMeter').style.width = pctOut+'%';
     $('outputMeter').className = 'meter-bar'+(pctOut>85?' warn':'');
     $('outputLevelVal').textContent = pctOut+'%';
