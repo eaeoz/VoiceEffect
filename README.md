@@ -1,29 +1,36 @@
 # VoiceEffect
 
-Real-time voice effect processor built with Electron. Apply 22 voice effects, save presets, and route audio through virtual devices.
+Real-time voice effect processor for Windows. Change your voice with 22 built-in effects, save presets, and route audio through virtual devices.
 
-## Install & Run
+![VoiceEffect UI](sample_preview/VoiceEffect_UI_Sample.jpg)
 
-```bash
-npm install
-npm start
-```
+## Download
 
-## Building
+| Version | Download |
+|---------|----------|
+| Installer | [VoiceEffect Setup 1.0.0.exe](https://github.com/eaeoz/VoiceEffect/releases/download/1.0.0/VoiceEffect.Setup.1.0.0.exe) |
+| Portable | [VoiceEffect_portable_1.0.0.exe](https://github.com/eaeoz/VoiceEffect/releases/download/1.0.0/VoiceEffect_portable_1.0.0.exe) |
 
-```bash
-npm run build          # Portable + NSIS installer
-npm run build:portable # Portable only
-npm run build:setup    # NSIS installer only
-```
+- **Installer** — Installs like a regular program. You can choose the install directory.
+- **Portable** — Runs without installation. Just double-click the `.exe` file.
 
-Output goes to `dist/`. Windows x64 only.
+Both versions work on **Windows 10/11 (64-bit)**.
+
+## Quick Start
+
+1. Download and run VoiceEffect (installer or portable).
+2. Allow microphone access when prompted.
+3. Select your microphone from the **Input Device** dropdown.
+4. Select your speakers or headphones from the **Output Device** dropdown.
+5. Click **Start** to begin processing.
+6. Enable any effect using the toggle switch and adjust intensity with the slider.
+
+You can hear your processed voice in real time through your speakers or headphones.
 
 ## Features
 
-- Real-time mic input with live AudioWorklet processing
-- 22 built-in voice effects with on/off toggles and 0-100% intensity sliders
-- Presets system (save/load/delete effect combinations)
+- 22 built-in voice effects with on/off toggles and intensity sliders (0-100%)
+- Presets system — save, load, and delete effect combinations
 - Input/output device selection
 - Per-device volume control
 - Virtual audio adapter (VB-Cable) support with auto-install
@@ -31,10 +38,9 @@ Output goes to `dist/`. Windows x64 only.
 - System tray minimize with close-to-tray option
 - Live input/output level meters with adjustable sensitivity
 - CPU, RAM, latency, and uptime stats display
-- Frameless window with custom titlebar
 - Window position/size persistence across restarts
-- Toast notifications for actions
 - Auto-start audio on launch option
+- Profile backup and restore
 
 ## Effects
 
@@ -47,21 +53,109 @@ Output goes to `dist/`. Windows x64 only.
 | Modulation | Chorus, AutoTune |
 | Creative | Distortion, Radio, Telephone, Robot, Alien, Monster, Child, Deep, Chipmunk |
 
-## Architecture
+### What Each Effect Does
+
+- **Pitch** — Raise or lower your voice pitch.
+- **Formant** — Shift vocal character without changing pitch (makes voice sound thicker or thinner).
+- **Compressor** — Evens out volume levels for a more consistent sound.
+- **Limiter** — Prevents audio from exceeding a set loudness.
+- **EQ** — Adjust overall tone balance (brightness vs warmth).
+- **Bass Boost** — Enhances low frequencies for a deeper sound.
+- **Treble Boost** — Enhances high frequencies for a crisper sound.
+- **Reverb** — Adds room-like echo reflections.
+- **Echo** — Repeats your voice with a delay.
+- **Hall, Cave, Stadium** — Larger reverb environments with different characteristics.
+- **Chorus** — Makes your voice sound like multiple voices.
+- **AutoTune** — Snap your voice to the nearest musical note.
+- **Distortion** — Adds a gritty, overdriven sound.
+- **Radio** — Simulates AM/radio bandwidth-limited audio.
+- **Telephone** — Simulates a phone call audio effect.
+- **Robot** — Metallic, monotone robotic voice.
+- **Alien** — Sci-fi style vocal effect.
+- **Monster** — Deep, menacing voice.
+- **Child** — Simulates a child's voice.
+- **Deep** — Extra low voice effect.
+- **Chipmunk** — High-pitched, fast-sounding voice.
+
+## Presets
+
+Presets let you save your current effect settings and reload them later. Open the **Side Panel** to:
+
+- **Save** — Create a new preset from your current settings.
+- **Load** — Apply a saved preset.
+- **Delete** — Remove a preset you no longer need.
+- **Backup / Restore** — Export all presets to a file or import from a backup.
+
+Presets are stored as JSON files in the `presets/` folder.
+
+## Virtual Audio Adapter (VB-Cable)
+
+If you want to send your processed voice to other apps (Discord, Zoom, OBS, etc.), you can install the **VB-Audio Virtual Cable** directly from VoiceEffect:
+
+1. Go to the **Side Panel** and find the Adapter section.
+2. Click **Install** — the driver downloads and installs automatically.
+3. Select **CABLE Input** as your output device in VoiceEffect.
+4. In the target app (Discord, Zoom, etc.), select **CABLE Output** as the input device.
+
+Your processed voice is now routed to that app.
+
+## Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Sample Rate | 44100 | Audio quality (22050 / 44100 / 48000) |
+| Buffer Size | 256 | Lower = less latency but more CPU usage (128-2048) |
+| Input/Output Volume | 80 | Mic and speaker volume (0-100) |
+| Theme | Dark | Dark or Light |
+| Auto-Start | Off | Start audio processing on launch |
+| Minimize to Tray | On | Hide to system tray instead of closing |
+| Input/Output Sensitivity | 300/100 | Level meter sensitivity (50-600) |
+
+Settings are saved automatically and restored on next launch.
+
+## Requirements
+
+- Windows 10 or later (64-bit)
+- Microphone
+- Speakers or headphones
+- (Optional) VB-Audio Virtual Cable for routing to other apps
+
+---
+
+## For Developers
+
+### Install & Run
+
+```bash
+npm install
+npm start
+```
+
+### Building
+
+```bash
+npm run build          # Portable + NSIS installer
+npm run build:portable # Portable only
+npm run build:setup    # NSIS installer only
+```
+
+Output goes to `dist/`. Windows x64 only.
+
+### Architecture
 
 ```
-main.js               Electron main process (window, IPC, tray, settings, device enumeration)
-preload.js            Context bridge - exposes safe API to renderer
-audio-engine.js       Main process audio state, device enumeration, stats aggregation
-virtual-audio-adapter.js  VB-Cable driver installer/uninstaller
-create-icon.js        Programmatic PNG/ICO icon generator
+main.js                     Electron main process (window, IPC, tray, settings, device enumeration)
+preload.js                  Context bridge - exposes safe API to renderer
+audio-engine.js             Main process audio state, device enumeration, stats aggregation
+virtual-audio-adapter.js    VB-Cable driver installer/uninstaller
+create-icon.js              Programmatic PNG/ICO icon generator
 public/
-  index.html          Renderer UI + all client-side audio processing
-  voice-processor.js  AudioWorklet DSP - runs all effects on a dedicated audio thread
+  index.html                Renderer UI + all client-side audio processing
+  voice-processor.js        AudioWorklet DSP - runs all effects on a dedicated audio thread
 data/
-  icon.ico            Windows app icon
-  icon.png            PNG app icon
-presets/              Saved preset JSON files
+  icon.ico                  Windows app icon
+  icon.png                  PNG app icon
+presets/                    Saved preset JSON files
 ```
 
 ### Audio Pipeline
@@ -109,27 +203,7 @@ All audio DSP runs inside `AudioWorkletNode` on a dedicated audio thread, keepin
 | `adapter-status` / `adapter-installing` / `adapter-progress` | Main -> Renderer | Adapter state updates |
 | `log-message` | Main -> Renderer | Forward log to console |
 
-## Settings
-
-Stored in `userData/settings.json`.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `sampleRate` | 44100 | Audio sample rate (22050/44100/48000) |
-| `bufferSize` | 256 | Audio buffer size (128-2048) |
-| `inputVolume` / `outputVolume` | 80 | Volume levels (0-100) |
-| `theme` | "dark" | UI theme (dark/light) |
-| `autoStart` | false | Auto-start audio on launch |
-| `minimizeToTray` | true | Hide to tray on close |
-| `showLatency` | true | Show latency in stats |
-| `inputSensitivity` / `outputSensitivity` | 300/100 | Level meter sensitivity (50-600) |
-| `windowBounds` | null | Saved window position/size |
-
-## Presets
-
-Presets save the current effect configuration as JSON files in `presets/`. Each preset stores which effects are enabled and their intensity values. Create, load, or delete presets from the Side Panel profile section.
-
-## Tech Stack
+### Tech Stack
 
 - Electron 28
 - Web Audio API (AudioWorkletNode)
