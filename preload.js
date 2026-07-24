@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('api', {
   getPresets: () => ipcRenderer.invoke('get-presets'),
   savePreset: (p) => ipcRenderer.invoke('save-preset', p),
   deletePreset: (id) => ipcRenderer.invoke('delete-preset', id),
+  backupProfiles: () => ipcRenderer.invoke('backup-profiles'),
+  restoreProfiles: () => ipcRenderer.invoke('restore-profiles'),
 
   // External
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

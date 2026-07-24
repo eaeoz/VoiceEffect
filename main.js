@@ -431,6 +431,52 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('backup-profiles', async () => {
+    const dir = getPresetsDir();
+    const presets = [];
+    try {
+      const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+      for (const f of files) {
+        try {
+          const data = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8'));
+          presets.push({ id: f.replace('.json', ''), ...data });
+        } catch(e) {}
+      }
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Backup Profiles',
+        defaultPath: 'VoiceEffect_Profiles_Backup.json',
+        filters: [{ name: 'JSON Files', extensions: ['json'] }]
+      });
+      if (result.canceled || !result.filePath) return { success: false, canceled: true };
+      fs.writeFileSync(result.filePath, JSON.stringify(presets, null, 2), 'utf-8');
+      return { success: true, filePath: result.filePath };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('restore-profiles', async () => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Restore Profiles',
+        filters: [{ name: 'JSON Files', extensions: ['json'] }],
+        properties: ['openFile']
+      });
+      if (result.canceled || !result.filePaths.length) return { success: false, canceled: true };
+      const data = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf-8'));
+      if (!Array.isArray(data)) throw new Error('Invalid backup file format');
+      const dir = getPresetsDir();
+      for (const preset of data) {
+        if (preset.id) {
+          fs.writeFileSync(path.join(dir, preset.id + '.json'), JSON.stringify(preset, null, 2), 'utf-8');
+        }
+      }
+      return { success: true, count: data.length };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('get-system-stats', async () => {
     const now = Date.now();
     const elapsedMs = now - lastCpuTime;
