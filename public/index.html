@@ -281,7 +281,7 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
   </div>
 
   <div class="stats-panel">
-    <div class="stat"><div class="stat-label">Latency</div><div class="stat-value accent" id="statLatency">0ms</div></div>
+    <div class="stat" id="statLatencyRow"><div class="stat-label">Latency</div><div class="stat-value accent" id="statLatency">0ms</div></div>
     <div class="stat"><div class="stat-label">CPU</div><div class="stat-value accent2" id="statCPU">0%</div></div>
     <div class="stat"><div class="stat-label">RAM</div><div class="stat-value" id="statRAM">0MB</div></div>
     <div class="stat"><div class="stat-label">Processed</div><div class="stat-value" id="statProcessed">0</div></div>
@@ -984,6 +984,7 @@ async function loadSettings(){
     if($('setLanguage')) $('setLanguage').value = s.language || 'en';
     if($('setMinTray')) $('setMinTray').checked = s.minimizeToTray !== false;
     if($('setShowLatency')) $('setShowLatency').checked = s.showLatency !== false;
+    if($('statLatencyRow')) $('statLatencyRow').style.display = s.showLatency === false ? 'none' : '';
     if($('setAutoStart')) $('setAutoStart').checked = s.autoStart || false;
     if($('inputSens')){ $('inputSens').value = s.inputSensitivity || 300; $('inputSensVal').textContent = s.inputSensitivity || 300; }
     if($('outputSens')){ $('outputSens').value = s.outputSensitivity || 100; $('outputSensVal').textContent = s.outputSensitivity || 100; }
@@ -1221,7 +1222,7 @@ function setupEventListeners(){
         const s = await api.getSystemStats();
         if(s.cpu !== undefined) $('statCPU').textContent = s.cpu + '%';
         if(s.ramUsed !== undefined) $('statRAM').textContent = s.ramUsed + 'MB';
-        if(s.latency !== undefined) $('statLatency').textContent = s.latency + 'ms';
+        if(s.latency !== undefined && $('statLatencyRow')?.style.display !== 'none') $('statLatency').textContent = s.latency + 'ms';
       } catch(e) {}
     }, 2000);
     api.onLogMessage(msg => {

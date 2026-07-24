@@ -159,9 +159,15 @@ function createWindow() {
 
   mainWindow.on('close', (e) => {
     sendBlocked = true;
+    const settings = loadSettings();
     if (!isQuitting) {
       e.preventDefault();
-      mainWindow.hide();
+      if (settings.minimizeToTray !== false) {
+        mainWindow.hide();
+      } else {
+        isQuitting = true;
+        app.quit();
+      }
       return false;
     }
   });
