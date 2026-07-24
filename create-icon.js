@@ -6,7 +6,7 @@ const SIZE = 256;
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-function createPNG() {
+function createTrayPNG() {
   const pixels = Buffer.alloc(SIZE * SIZE * 4);
   const cx = SIZE / 2, cy = SIZE / 2;
 
@@ -56,7 +56,130 @@ function createPNG() {
     }
   }
 
-  // Teal/green gradient background circle
+  // Bright purple-blue gradient background
+  for (let py = 0; py < SIZE; py++) {
+    for (let px = 0; px < SIZE; px++) {
+      const dx = px - cx, dy = py - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxR = SIZE / 2 - 4;
+      if (dist <= maxR) {
+        const t = py / SIZE;
+        const r = Math.round(90 + t * 40);
+        const g = Math.round(60 + t * 10);
+        const b = Math.round(220 - t * 30);
+        setPixel(px, py, r, g, b, 255);
+      }
+    }
+  }
+
+  // Dark outline ring
+  for (let py = 0; py < SIZE; py++) {
+    for (let px = 0; px < SIZE; px++) {
+      const dx = px - cx, dy = py - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxR = SIZE / 2 - 4;
+      if (dist > maxR - 5 && dist <= maxR) {
+        setPixel(px, py, 20, 20, 30, 255);
+      }
+    }
+  }
+
+  // Microphone outline then white
+  const micW = 24, micH = 60;
+  fillRoundedRect(cx - micW / 2 - 3, cy - micH / 2 - 10 - 3, micW + 6, micH + 6, 14, 20, 20, 30, 255);
+  fillRoundedRect(cx - micW / 2, cy - micH / 2 - 10, micW, micH, 12, 255, 255, 255, 255);
+
+  // Holder arc outline then white
+  const arcR = 38;
+  const arcThickness = 8;
+  for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.02) {
+    const ax = cx + Math.cos(angle) * arcR;
+    const ay = cy - 10 + Math.sin(angle) * (arcR * 0.8);
+    fillCircle(ax, ay, arcThickness / 2 + 3, 20, 20, 30, 255);
+  }
+  for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.02) {
+    const ax = cx + Math.cos(angle) * arcR;
+    const ay = cy - 10 + Math.sin(angle) * (arcR * 0.8);
+    fillCircle(ax, ay, arcThickness / 2, 255, 255, 255, 255);
+  }
+
+  // Stand outline then white
+  for (let y = cy + 20; y <= cy + 48; y++) {
+    fillCircle(cx, y, 5, 20, 20, 30, 255);
+  }
+  for (let y = cy + 20; y <= cy + 48; y++) {
+    fillCircle(cx, y, 3, 255, 255, 255, 255);
+  }
+
+  // Base outline then white
+  fillRoundedRect(cx - 22, cy + 44, 44, 10, 4, 20, 20, 30, 255);
+  fillRoundedRect(cx - 20, cy + 46, 40, 6, 3, 255, 255, 255, 255);
+
+  // Sound waves outline then white
+  const waveR1 = 50, waveR2 = 62;
+  for (let angle = -0.6; angle <= 0.6; angle += 0.03) {
+    fillCircle(cx + Math.cos(angle) * waveR1, cy - 10 + Math.sin(angle) * waveR1 * 0.6, 3, 20, 20, 30, 220);
+    fillCircle(cx + Math.cos(angle) * waveR2, cy - 10 + Math.sin(angle) * waveR2 * 0.6, 3, 20, 20, 30, 180);
+  }
+  for (let angle = -0.6; angle <= 0.6; angle += 0.03) {
+    fillCircle(cx + Math.cos(angle) * waveR1, cy - 10 + Math.sin(angle) * waveR1 * 0.6, 2, 255, 255, 255, 255);
+    fillCircle(cx + Math.cos(angle) * waveR2, cy - 10 + Math.sin(angle) * waveR2 * 0.6, 2, 255, 255, 255, 220);
+  }
+
+  return encodePNG(pixels, SIZE, SIZE);
+}
+
+function createExePNG() {
+  const pixels = Buffer.alloc(SIZE * SIZE * 4);
+  const cx = SIZE / 2, cy = SIZE / 2;
+
+  function setPixel(x, y, r, g, b, a) {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
+    const idx = (y * SIZE + x) * 4;
+    const srcA = pixels[idx + 3] / 255;
+    const dstA = a / 255;
+    const outA = srcA + dstA * (1 - srcA);
+    if (outA > 0) {
+      pixels[idx] = Math.round((pixels[idx] * srcA + r * dstA * (1 - srcA)) / outA);
+      pixels[idx + 1] = Math.round((pixels[idx + 1] * srcA + g * dstA * (1 - srcA)) / outA);
+      pixels[idx + 2] = Math.round((pixels[idx + 2] * srcA + b * dstA * (1 - srcA)) / outA);
+      pixels[idx + 3] = Math.round(outA * 255);
+    }
+  }
+
+  function fillCircle(cx, cy, radius, r, g, b, a) {
+    for (let y = -radius; y <= radius; y++) {
+      for (let x = -radius; x <= radius; x++) {
+        if (x * x + y * y <= radius * radius) {
+          setPixel(cx + x, cy + y, r, g, b, a);
+        }
+      }
+    }
+  }
+
+  function fillRoundedRect(x, y, w, h, rad, r, g, b, a) {
+    for (let py = y; py < y + h; py++) {
+      for (let px = x; px < x + w; px++) {
+        let inRect = false;
+        if (px >= x + rad && px <= x + w - rad && py >= y && py <= y + h) inRect = true;
+        if (py >= y + rad && py <= y + h - rad && px >= x && px <= x + w) inRect = true;
+        if (!inRect) {
+          const corners = [
+            [x + rad, y + rad], [x + w - rad, y + rad],
+            [x + rad, y + h - rad], [x + w - rad, y + h - rad]
+          ];
+          for (const [ccx, ccy] of corners) {
+            const dx = px - ccx, dy = py - ccy;
+            if (dx * dx + dy * dy <= rad * rad) { inRect = true; break; }
+          }
+        }
+        if (inRect) setPixel(px, py, r, g, b, a);
+      }
+    }
+  }
+
+  // Teal/green gradient background
   for (let py = 0; py < SIZE; py++) {
     for (let px = 0; px < SIZE; px++) {
       const dx = px - cx, dy = py - cy;
@@ -72,7 +195,7 @@ function createPNG() {
     }
   }
 
-  // Dark outline ring for contrast on any background
+  // Dark outline ring
   for (let py = 0; py < SIZE; py++) {
     for (let px = 0; px < SIZE; px++) {
       const dx = px - cx, dy = py - cy;
@@ -84,7 +207,7 @@ function createPNG() {
     }
   }
 
-  // Audio waveform / equalizer bars
+  // Equalizer bars
   const barWidth = 14;
   const barGap = 8;
   const bars = [40, 70, 100, 130, 100, 70, 40];
@@ -96,19 +219,14 @@ function createPNG() {
     const barH = Math.round(maxBarH * bars[i] / 100);
     const bx = startX + i * (barWidth + barGap);
     const by = cy - barH / 2;
-
-    // Dark outline
     fillRoundedRect(bx - 3, by - 3, barWidth + 6, barH + 6, 7, 10, 40, 50, 255);
-    // White bar
     fillRoundedRect(bx, by, barWidth, barH, 5, 255, 255, 255, 255);
   }
 
-  // Small speaker icon at bottom-right
+  // Speaker icon bottom-right
   const spkX = cx + 55, spkY = cy + 60;
-  // Speaker body
   fillRoundedRect(spkX - 8, spkY - 8, 12, 16, 3, 10, 40, 50, 255);
   fillRoundedRect(spkX - 6, spkY - 6, 8, 12, 2, 255, 255, 255, 255);
-  // Sound waves from speaker
   for (let angle = -0.4; angle <= 0.4; angle += 0.05) {
     fillCircle(spkX + 6 + Math.cos(angle) * 12, spkY + Math.sin(angle) * 10, 2, 10, 40, 50, 200);
     fillCircle(spkX + 6 + Math.cos(angle) * 18, spkY + Math.sin(angle) * 14, 2, 10, 40, 50, 140);
@@ -211,14 +329,17 @@ function createICO(pngBuffers) {
   return Buffer.concat([header, ...dirEntries, ...pngBuffers.map(e => e.buffer)]);
 }
 
-console.log('Generating icon...');
-const png = createPNG();
-fs.writeFileSync(path.join(dataDir, 'icon.png'), png);
+console.log('Generating tray icon (icon.png)...');
+const trayPng = createTrayPNG();
+fs.writeFileSync(path.join(dataDir, 'icon.png'), trayPng);
+console.log('Tray icon created: data/icon.png');
 
+console.log('Generating exe/installer icon (icon.ico)...');
+const exePng = createExePNG();
 const icoSizes = [16, 32, 48, 256];
 const icoBuffers = icoSizes.map(size => ({
   size,
-  buffer: encodePNG(resizePNG(png, SIZE, size), size, size)
+  buffer: encodePNG(resizePNG(exePng, SIZE, size), size, size)
 }));
 fs.writeFileSync(path.join(dataDir, 'icon.ico'), createICO(icoBuffers));
-console.log('Icons created: data/icon.png, data/icon.ico');
+console.log('Exe icon created: data/icon.ico');
