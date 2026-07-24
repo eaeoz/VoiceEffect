@@ -51,6 +51,7 @@ function loadSettings() {
     adapterEnabled: false,
     inputSensitivity: 300,
     outputSensitivity: 100,
+    activeProfileId: null,
     effects: {
       pitchShift: { enabled: false, value: 0 },
       formantShift: { enabled: false, value: 0 },

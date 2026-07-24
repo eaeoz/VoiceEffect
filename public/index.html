@@ -973,6 +973,7 @@ async function loadSettings(){
     const s = await api.getSettings();
     state.settings = s;
     state.adapterEnabled = s.adapterEnabled || false;
+    activeProfileId = s.activeProfileId || null;
     if($('inputVol')){ $('inputVol').value = s.inputVolume||80; $('inputVolVal').textContent=(s.inputVolume||80)+'%'; }
     if($('outputVol')){ $('outputVol').value = s.outputVolume||80; $('outputVolVal').textContent=(s.outputVolume||80)+'%'; }
     if(s.inputDevice != null) $('inputDevice').value = s.inputDevice;
@@ -1043,6 +1044,8 @@ async function quickSaveProfile(){
     const r = await api.savePreset(preset);
     if(r && r.success){
       activeProfileId = r.id || null;
+      state.settings.activeProfileId = activeProfileId;
+      if(api) api.saveSettings(state.settings);
       nameEl.value = '';
       loadProfileSelect();
       showToast('Profile saved: ' + name);
@@ -1067,6 +1070,8 @@ async function deleteSelectedProfile(){
     try {
       await api.deletePreset(id);
       activeProfileId = null;
+      state.settings.activeProfileId = null;
+      if(api) api.saveSettings(state.settings);
       loadProfileSelect();
       showToast('Profile deleted');
     } catch(e) {
@@ -1110,6 +1115,8 @@ async function onProfileSelectChange(){
   if(!id){
     disableAllEffects();
     activeProfileId = null;
+    state.settings.activeProfileId = null;
+    if(api) api.saveSettings(state.settings);
     return;
   }
   const presets = await api.getPresets();
@@ -1137,6 +1144,8 @@ async function onProfileSelectChange(){
     });
   }
   activeProfileId = id;
+  state.settings.activeProfileId = id;
+  if(api) api.saveSettings(state.settings);
   showToast('Loaded: ' + (preset.name || id));
   setTimeout(() => $('quickProfileName').focus(), 50);
 }
