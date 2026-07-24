@@ -41,12 +41,13 @@
         "portable",
         "nsis"
       ],
-      "icon": "data/icon.ico"
+      "icon": "data/icon.ico",
+      "signAndEditExecutable": false,
+      "sign": null
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    },
-    "signAndEditExecutable": false
+    }
   }
 }
