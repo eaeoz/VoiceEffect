@@ -56,7 +56,7 @@ function createPNG() {
     }
   }
 
-  // Bright gradient background circle - visible on both light and dark taskbars
+  // Teal/green gradient background circle
   for (let py = 0; py < SIZE; py++) {
     for (let px = 0; px < SIZE; px++) {
       const dx = px - cx, dy = py - cy;
@@ -64,9 +64,9 @@ function createPNG() {
       const maxR = SIZE / 2 - 4;
       if (dist <= maxR) {
         const t = py / SIZE;
-        const r = Math.round(90 + t * 40);
-        const g = Math.round(60 + t * 10);
-        const b = Math.round(220 - t * 30);
+        const r = Math.round(0 + t * 10);
+        const g = Math.round(180 - t * 40);
+        const b = Math.round(170 - t * 20);
         setPixel(px, py, r, g, b, 255);
       }
     }
@@ -79,53 +79,43 @@ function createPNG() {
       const dist = Math.sqrt(dx * dx + dy * dy);
       const maxR = SIZE / 2 - 4;
       if (dist > maxR - 5 && dist <= maxR) {
-        setPixel(px, py, 20, 20, 30, 255);
+        setPixel(px, py, 10, 40, 50, 255);
       }
     }
   }
 
-  // Microphone outline (dark, drawn first)
-  const micW = 24, micH = 60;
-  fillRoundedRect(cx - micW / 2 - 3, cy - micH / 2 - 10 - 3, micW + 6, micH + 6, 14, 20, 20, 30, 255);
+  // Audio waveform / equalizer bars
+  const barWidth = 14;
+  const barGap = 8;
+  const bars = [40, 70, 100, 130, 100, 70, 40];
+  const totalW = bars.length * barWidth + (bars.length - 1) * barGap;
+  const startX = cx - totalW / 2;
+  const maxBarH = 100;
 
-  // Microphone body (white)
-  fillRoundedRect(cx - micW / 2, cy - micH / 2 - 10, micW, micH, 12, 255, 255, 255, 255);
+  for (let i = 0; i < bars.length; i++) {
+    const barH = Math.round(maxBarH * bars[i] / 100);
+    const bx = startX + i * (barWidth + barGap);
+    const by = cy - barH / 2;
 
-  // Microphone holder arc - outline then white
-  const arcR = 38;
-  const arcThickness = 8;
-  for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.02) {
-    const ax = cx + Math.cos(angle) * arcR;
-    const ay = cy - 10 + Math.sin(angle) * (arcR * 0.8);
-    fillCircle(ax, ay, arcThickness / 2 + 3, 20, 20, 30, 255);
-  }
-  for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.02) {
-    const ax = cx + Math.cos(angle) * arcR;
-    const ay = cy - 10 + Math.sin(angle) * (arcR * 0.8);
-    fillCircle(ax, ay, arcThickness / 2, 255, 255, 255, 255);
+    // Dark outline
+    fillRoundedRect(bx - 3, by - 3, barWidth + 6, barH + 6, 7, 10, 40, 50, 255);
+    // White bar
+    fillRoundedRect(bx, by, barWidth, barH, 5, 255, 255, 255, 255);
   }
 
-  // Stand - outline then white
-  for (let y = cy + 20; y <= cy + 48; y++) {
-    fillCircle(cx, y, 5, 20, 20, 30, 255);
+  // Small speaker icon at bottom-right
+  const spkX = cx + 55, spkY = cy + 60;
+  // Speaker body
+  fillRoundedRect(spkX - 8, spkY - 8, 12, 16, 3, 10, 40, 50, 255);
+  fillRoundedRect(spkX - 6, spkY - 6, 8, 12, 2, 255, 255, 255, 255);
+  // Sound waves from speaker
+  for (let angle = -0.4; angle <= 0.4; angle += 0.05) {
+    fillCircle(spkX + 6 + Math.cos(angle) * 12, spkY + Math.sin(angle) * 10, 2, 10, 40, 50, 200);
+    fillCircle(spkX + 6 + Math.cos(angle) * 18, spkY + Math.sin(angle) * 14, 2, 10, 40, 50, 140);
   }
-  for (let y = cy + 20; y <= cy + 48; y++) {
-    fillCircle(cx, y, 3, 255, 255, 255, 255);
-  }
-
-  // Base - outline then white
-  fillRoundedRect(cx - 22, cy + 44, 44, 10, 4, 20, 20, 30, 255);
-  fillRoundedRect(cx - 20, cy + 46, 40, 6, 3, 255, 255, 255, 255);
-
-  // Sound waves - thicker and brighter white
-  const waveR1 = 50, waveR2 = 62;
-  for (let angle = -0.6; angle <= 0.6; angle += 0.03) {
-    fillCircle(cx + Math.cos(angle) * waveR1, cy - 10 + Math.sin(angle) * waveR1 * 0.6, 3, 20, 20, 30, 220);
-    fillCircle(cx + Math.cos(angle) * waveR2, cy - 10 + Math.sin(angle) * waveR2 * 0.6, 3, 20, 20, 30, 180);
-  }
-  for (let angle = -0.6; angle <= 0.6; angle += 0.03) {
-    fillCircle(cx + Math.cos(angle) * waveR1, cy - 10 + Math.sin(angle) * waveR1 * 0.6, 2, 255, 255, 255, 255);
-    fillCircle(cx + Math.cos(angle) * waveR2, cy - 10 + Math.sin(angle) * waveR2 * 0.6, 2, 255, 255, 255, 220);
+  for (let angle = -0.4; angle <= 0.4; angle += 0.05) {
+    fillCircle(spkX + 6 + Math.cos(angle) * 12, spkY + Math.sin(angle) * 10, 1.5, 255, 255, 255, 220);
+    fillCircle(spkX + 6 + Math.cos(angle) * 18, spkY + Math.sin(angle) * 14, 1.5, 255, 255, 255, 160);
   }
 
   return encodePNG(pixels, SIZE, SIZE);
