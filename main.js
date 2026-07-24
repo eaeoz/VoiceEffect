@@ -49,6 +49,8 @@ function loadSettings() {
     enableNoiseGate: true,
     noiseGateThreshold: 0.01,
     adapterEnabled: false,
+    inputSensitivity: 300,
+    outputSensitivity: 100,
     effects: {
       pitchShift: { enabled: false, value: 0 },
       formantShift: { enabled: false, value: 0 },

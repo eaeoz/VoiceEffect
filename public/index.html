@@ -72,6 +72,19 @@ padding:12px 14px;display:flex;flex-direction:column;gap:6px;backdrop-filter:blu
 .meter-bar.warn{background:linear-gradient(90deg,var(--warning),var(--danger))}
 .meter-value{font-size:11px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
 
+.meter-sensitivity{max-height:0;overflow:hidden;opacity:0;transition:max-height .3s ease,opacity .3s ease,padding .3s ease;
+  padding:0 0;display:flex;flex-direction:column;gap:2px}
+.meter-card:hover .meter-sensitivity{max-height:40px;opacity:1;padding:4px 0 0}
+.sens-header{display:flex;justify-content:space-between;align-items:center}
+.sens-label{font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);font-weight:600}
+.sens-val{font-size:9px;color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums;min-width:28px;text-align:right}
+.sens-slider{-webkit-appearance:none;width:100%;height:3px;border-radius:2px;outline:none;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));opacity:.7;transition:opacity .2s;cursor:pointer}
+.sens-slider:hover{opacity:1}
+.sens-slider::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;
+  background:#fff;cursor:pointer;box-shadow:0 0 6px rgba(0,0,0,.4),0 0 8px var(--accent-glow);transition:transform .15s}
+.sens-slider::-webkit-slider-thumb:hover{transform:scale(1.3)}
+
 .stats-panel{display:flex;gap:12px;background:var(--bg-card);border:1px solid var(--border);
 border-radius:var(--radius);padding:10px 16px;backdrop-filter:blur(20px);flex-shrink:0}
 .stat{display:flex;flex-direction:column;align-items:center;gap:2px}
@@ -244,11 +257,25 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
         <div class="meter-label">Input Level</div>
         <div class="meter-bar-bg"><div class="meter-bar" id="inputMeter"></div></div>
         <div class="meter-value" id="inputLevelVal">0%</div>
+        <div class="meter-sensitivity">
+          <div class="sens-header">
+            <span class="sens-label">Sensitivity</span>
+            <span class="sens-val" id="inputSensVal">300</span>
+          </div>
+          <input type="range" class="sens-slider" id="inputSens" min="50" max="600" value="300">
+        </div>
       </div>
       <div class="meter-card">
         <div class="meter-label">Output Level</div>
         <div class="meter-bar-bg"><div class="meter-bar" id="outputMeter"></div></div>
         <div class="meter-value" id="outputLevelVal">0%</div>
+        <div class="meter-sensitivity">
+          <div class="sens-header">
+            <span class="sens-label">Sensitivity</span>
+            <span class="sens-val" id="outputSensVal">100</span>
+          </div>
+          <input type="range" class="sens-slider" id="outputSens" min="50" max="600" value="100">
+        </div>
       </div>
     </div>
   </div>
@@ -910,10 +937,13 @@ function startMeterLoop(){
   const bufIn = new Float32Array(analyserIn.fftSize);
   const bufOut = new Float32Array(analyserOut.fftSize);
   function loop(){
+    const sensIn = parseFloat($('inputSens')?.value) || 300;
+    const sensOut = parseFloat($('outputSens')?.value) || 100;
+
     analyserIn.getFloatTimeDomainData(bufIn);
     let sum=0; for(let i=0;i<bufIn.length;i++) sum+=bufIn[i]*bufIn[i];
     const rmsIn = Math.sqrt(sum/bufIn.length);
-    const pctIn = Math.min(100, Math.round(rmsIn*300));
+    const pctIn = Math.min(100, Math.round(rmsIn*sensIn));
     $('inputMeter').style.width = pctIn+'%';
     $('inputMeter').className = 'meter-bar'+(pctIn>85?' warn':'');
     $('inputLevelVal').textContent = pctIn+'%';
@@ -921,7 +951,7 @@ function startMeterLoop(){
     analyserOut.getFloatTimeDomainData(bufOut);
     sum=0; for(let i=0;i<bufOut.length;i++) sum+=bufOut[i]*bufOut[i];
     const rmsOut = Math.sqrt(sum/bufOut.length);
-    const pctOut = Math.min(100, Math.round(rmsOut*100));
+    const pctOut = Math.min(100, Math.round(rmsOut*sensOut));
     $('outputMeter').style.width = pctOut+'%';
     $('outputMeter').className = 'meter-bar'+(pctOut>85?' warn':'');
     $('outputLevelVal').textContent = pctOut+'%';
@@ -953,6 +983,8 @@ async function loadSettings(){
     if($('setMinTray')) $('setMinTray').checked = s.minimizeToTray !== false;
     if($('setShowLatency')) $('setShowLatency').checked = s.showLatency !== false;
     if($('setAutoStart')) $('setAutoStart').checked = s.autoStart || false;
+    if($('inputSens')){ $('inputSens').value = s.inputSensitivity || 300; $('inputSensVal').textContent = s.inputSensitivity || 300; }
+    if($('outputSens')){ $('outputSens').value = s.outputSensitivity || 100; $('outputSensVal').textContent = s.outputSensitivity || 100; }
     if(s.effects) {
       Object.entries(s.effects).forEach(([id, params]) => {
         if(params.enabled) {
@@ -978,6 +1010,8 @@ async function saveSettings(){
   const s = {
     ...state.settings,
     adapterEnabled: state.adapterEnabled,
+    inputSensitivity: parseInt($('inputSens')?.value) || 300,
+    outputSensitivity: parseInt($('outputSens')?.value) || 100,
     sampleRate: parseInt($('setSampleRate').value),
     bufferSize: parseInt($('setBufferSize').value),
     language: $('setLanguage').value,
@@ -1204,6 +1238,25 @@ function setupEventListeners(){
       } else if(data.stage === 'complete') {
         showToast('Installation complete');
       }
+    });
+  }
+
+  if($('inputSens')){
+    $('inputSens').addEventListener('input', e => {
+      $('inputSensVal').textContent = e.target.value;
+    });
+    $('inputSens').addEventListener('change', e => {
+      state.settings.inputSensitivity = parseInt(e.target.value);
+      if(api) api.saveSettings(state.settings);
+    });
+  }
+  if($('outputSens')){
+    $('outputSens').addEventListener('input', e => {
+      $('outputSensVal').textContent = e.target.value;
+    });
+    $('outputSens').addEventListener('change', e => {
+      state.settings.outputSensitivity = parseInt(e.target.value);
+      if(api) api.saveSettings(state.settings);
     });
   }
 }
