@@ -441,7 +441,7 @@ async function init(){
   await enumerateBrowserDevices();
   loadDevices();
   updateAdapterUI();
-  loadProfileSelect();
+  await loadProfileSelect(true);
   setupEventListeners();
   checkAdapterStatus();
   showToast('VoiceEffect ready');
@@ -1110,21 +1110,44 @@ async function restoreProfiles(){
   }
 }
 
-function loadProfileSelect(){
-  loadPresets().then(presets => {
-    const sel = $('profileSelect');
-    if(!sel) return;
-    const current = sel.value;
-    sel.innerHTML = '<option value="">-- None --</option>';
-    presets.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.name || p.id;
-      if(p.id === activeProfileId) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    if(current && current !== activeProfileId) sel.value = current;
+async function loadProfileSelect(applyActive){
+  const presets = await loadPresets();
+  const sel = $('profileSelect');
+  if(!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- None --</option>';
+  presets.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name || p.id;
+    if(p.id === activeProfileId) opt.selected = true;
+    sel.appendChild(opt);
   });
+  if(current && current !== activeProfileId) sel.value = current;
+  if(applyActive && activeProfileId) {
+    const preset = presets.find(p => p.id === activeProfileId);
+    if(preset && preset.effects) {
+      disableAllEffects();
+      Object.entries(preset.effects).forEach(([fxId, params]) => {
+        if(params.enabled){
+          const row = $('fx-'+fxId);
+          if(row) {
+            row.classList.add('active');
+            const t = row.querySelector('.fx-toggle');
+            if(t) t.classList.add('on');
+            const slider = row.querySelector('.fx-slider');
+            if(slider) slider.value = params.value || 50;
+            const val = row.querySelector('.fx-val');
+            if(val) val.textContent = (params.value || 50) + '%';
+          }
+          state.activeEffects[fxId] = params;
+          if(api) api.toggleEffect(fxId, true);
+          if(api) api.setEffect(fxId, params);
+          if(workletNode) workletNode.port.postMessage({ type: 'toggle', name: fxId, params });
+        }
+      });
+    }
+  }
 }
 
 async function onProfileSelectChange(){
