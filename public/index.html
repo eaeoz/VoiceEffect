@@ -412,7 +412,7 @@ const EFFECTS = [
 
 let state = {
   running: false, theme: 'dark', settings: {},
-  activeEffects: {}, adapterInstalled: false, adapterEnabled: false, adapterInstalling: false
+  activeEffects: {}, adapterInstalled: false, adapterEnabled: false, adapterInstalling: false, adapterUninstalling: false
 };
 
 let audioCtx = null, micStream = null, micSource = null;
@@ -474,6 +474,14 @@ function updateAdapterUI(){
     toggle.className = 'adapter-toggle disabled';
     status.className = 'adapter-status';
     status.textContent = 'Installing...';
+    label.className = 'adapter-label';
+    return;
+  }
+  
+  if(state.adapterUninstalling) {
+    toggle.className = 'adapter-toggle disabled';
+    status.className = 'adapter-status';
+    status.textContent = 'Uninstalling...';
     label.className = 'adapter-label';
     return;
   }
@@ -578,19 +586,21 @@ async function installAdapter(){
   } finally {
     state.adapterInstalling = false;
     updateAdapterUI();
+    updateSettingsAdapterStatus();
   }
 }
 
 async function uninstallAdapter(){
-  if(!api || state.adapterInstalling) return;
+  if(!api || state.adapterInstalling || state.adapterUninstalling) return;
   
   if(state.adapterEnabled) {
     state.adapterEnabled = false;
     updateAdapterUI();
   }
   
-  state.adapterInstalling = true;
+  state.adapterUninstalling = true;
   updateAdapterUI();
+  updateSettingsAdapterStatus();
   showToast('Uninstalling virtual audio adapter...');
   
   try {
@@ -606,8 +616,9 @@ async function uninstallAdapter(){
   } catch(e) {
     showToast('Uninstall error: ' + e.message);
   } finally {
-    state.adapterInstalling = false;
+    state.adapterUninstalling = false;
     updateAdapterUI();
+    updateSettingsAdapterStatus();
   }
 }
 
@@ -1108,6 +1119,14 @@ async function updateSettingsAdapterStatus(){
   
   if(state.adapterInstalling) {
     statusEl.textContent = 'Installing...';
+    statusEl.className = 'adapter-status';
+    installBtn.disabled = true;
+    uninstallBtn.disabled = true;
+    return;
+  }
+  
+  if(state.adapterUninstalling) {
+    statusEl.textContent = 'Uninstalling...';
     statusEl.className = 'adapter-status';
     installBtn.disabled = true;
     uninstallBtn.disabled = true;
