@@ -38,6 +38,15 @@ contextBridge.exposeInMainWorld('api', {
   importFile: (opts) => ipcRenderer.invoke('import-file', opts),
   selectFolder: (opts) => ipcRenderer.invoke('select-folder', opts),
 
+  // Virtual Audio Adapter
+  checkAdapterInstalled: () => ipcRenderer.invoke('check-adapter-installed'),
+  installAdapter: () => ipcRenderer.invoke('install-adapter'),
+  uninstallAdapter: () => ipcRenderer.invoke('uninstall-adapter'),
+  getAdapterInfo: () => ipcRenderer.invoke('get-adapter-info'),
+  onAdapterStatus: (cb) => ipcRenderer.on('adapter-status', (e, v) => cb(v)),
+  onAdapterInstalling: (cb) => ipcRenderer.on('adapter-installing', (e, v) => cb(v)),
+  onAdapterProgress: (cb) => ipcRenderer.on('adapter-progress', (e, v) => cb(v)),
+
   // Event listeners
   onInputLevel: (cb) => ipcRenderer.on('input-level', (e, v) => cb(v)),
   onOutputLevel: (cb) => ipcRenderer.on('output-level', (e, v) => cb(v)),

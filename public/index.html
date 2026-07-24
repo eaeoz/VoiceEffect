@@ -124,7 +124,23 @@ background:var(--bg-secondary);color:var(--text-primary);font-size:11px;cursor:p
 appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 background-repeat:no-repeat;background-position:right 8px center}
 .device-select:focus{border-color:var(--accent)}
+.device-select:disabled{opacity:0.5;cursor:not-allowed}
 .device-label{font-size:10px;color:var(--text-secondary);margin-bottom:2px}
+
+.adapter-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.adapter-toggle{width:36px;height:20px;border-radius:10px;border:1.5px solid var(--border);
+background:var(--bg-secondary);cursor:pointer;position:relative;flex-shrink:0;transition:.2s}
+.adapter-toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;
+border-radius:50%;background:var(--text-secondary);transition:.2s}
+.adapter-toggle.on{border-color:var(--accent);background:rgba(124,58,237,0.3)}
+.adapter-toggle.on::after{left:18px;background:var(--accent);box-shadow:0 0 6px var(--accent-glow)}
+.adapter-toggle.disabled{opacity:0.4;cursor:not-allowed;filter:blur(1px)}
+.adapter-toggle.disabled::after{background:var(--text-secondary)}
+.adapter-label{font-size:10px;color:var(--text-secondary);flex:1}
+.adapter-label.active{color:var(--accent)}
+.adapter-status{font-size:9px;padding:2px 6px;border-radius:4px;background:var(--bg-secondary);color:var(--text-secondary)}
+.adapter-status.installed{background:rgba(34,197,94,0.15);color:var(--success)}
+.adapter-status.not-installed{background:rgba(239,68,68,0.15);color:var(--danger)}
 
 .volume-row{display:flex;flex-direction:column;gap:3px}
 .volume-header{display:flex;justify-content:space-between;align-items:center}
@@ -268,6 +284,11 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
       </div>
       <div class="side-card">
         <div class="side-card-title">Output Device</div>
+        <div class="adapter-row">
+          <div class="adapter-toggle disabled" id="adapterToggle" onclick="toggleAdapter()" title="Virtual Audio Adapter"></div>
+          <span class="adapter-label" id="adapterLabel">Virtual Output</span>
+          <span class="adapter-status not-installed" id="adapterStatus">Not Installed</span>
+        </div>
         <select class="device-select" id="outputDevice" onchange="changeOutputDevice()"></select>
         <div class="volume-row">
           <div class="volume-header"><span class="volume-label">Output Volume</span><span class="volume-val" id="outputVolVal">80%</span></div>
@@ -335,6 +356,24 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
         <label><input type="checkbox" id="setAutoStart"> Auto-start</label>
       </div>
     </div>
+    <div class="form-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+      <label class="form-label">Virtual Audio Adapter</label>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--text-secondary)">Status:</span>
+        <span class="adapter-status" id="settingsAdapterStatus">Checking...</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" id="installAdapterBtn" onclick="installAdapter()" style="flex:1">
+          Install Adapter
+        </button>
+        <button class="btn btn-danger btn-sm" id="uninstallAdapterBtn" onclick="uninstallAdapter()" style="flex:1">
+          Uninstall Adapter
+        </button>
+      </div>
+      <div style="font-size:9px;color:var(--text-secondary);margin-top:6px">
+        Virtual audio adapter allows routing audio to other applications as a microphone input.
+      </div>
+    </div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
       <button class="btn btn-secondary" onclick="resetSettings()">Reset Defaults</button>
@@ -373,7 +412,7 @@ const EFFECTS = [
 
 let state = {
   running: false, theme: 'dark', settings: {},
-  activeEffects: {}
+  activeEffects: {}, adapterInstalled: false, adapterEnabled: false, adapterInstalling: false
 };
 
 let audioCtx = null, micStream = null, micSource = null;
@@ -390,6 +429,7 @@ function init(){
   loadSettings();
   loadProfileSelect();
   setupEventListeners();
+  checkAdapterStatus();
   showToast('VoiceEffect ready');
 }
 
@@ -403,6 +443,172 @@ function toggleTheme(){
   state.theme = state.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', state.theme);
   localStorage.setItem('ve-theme', state.theme);
+}
+
+async function checkAdapterStatus(){
+  if(!api) return;
+  try {
+    const result = await api.checkAdapterInstalled();
+    state.adapterInstalled = result.installed;
+    updateAdapterUI();
+    
+    if(result.installed && state.adapterEnabled) {
+      await selectVirtualOutputDevice();
+    }
+  } catch(e) {
+    console.error('Adapter check error:', e);
+    state.adapterInstalled = false;
+    updateAdapterUI();
+  }
+}
+
+function updateAdapterUI(){
+  const toggle = $('adapterToggle');
+  const label = $('adapterLabel');
+  const status = $('adapterStatus');
+  const outputSel = $('outputDevice');
+  
+  if(!toggle || !label || !status) return;
+  
+  if(state.adapterInstalling) {
+    toggle.className = 'adapter-toggle disabled';
+    status.className = 'adapter-status';
+    status.textContent = 'Installing...';
+    label.className = 'adapter-label';
+    return;
+  }
+  
+  if(state.adapterInstalled) {
+    toggle.className = 'adapter-toggle' + (state.adapterEnabled ? ' on' : '');
+    status.className = 'adapter-status installed';
+    status.textContent = 'Installed';
+    label.className = 'adapter-label' + (state.adapterEnabled ? ' active' : '');
+    
+    if(state.adapterEnabled) {
+      outputSel.disabled = true;
+      outputSel.style.opacity = '0.5';
+      outputSel.style.cursor = 'not-allowed';
+    } else {
+      outputSel.disabled = false;
+      outputSel.style.opacity = '';
+      outputSel.style.cursor = '';
+    }
+  } else {
+    toggle.className = 'adapter-toggle disabled';
+    status.className = 'adapter-status not-installed';
+    status.textContent = 'Not Installed';
+    label.className = 'adapter-label';
+    outputSel.disabled = false;
+    outputSel.style.opacity = '';
+    outputSel.style.cursor = '';
+  }
+}
+
+async function toggleAdapter(){
+  if(!api || state.adapterInstalling) return;
+  
+  if(!state.adapterInstalled) {
+    showToast('Virtual audio adapter not installed. Go to Settings to install.');
+    return;
+  }
+  
+  state.adapterEnabled = !state.adapterEnabled;
+  updateAdapterUI();
+  
+  if(state.adapterEnabled) {
+    await selectVirtualOutputDevice();
+    showToast('Virtual output enabled');
+  } else {
+    showToast('Virtual output disabled');
+    if(state.running) {
+      await changeOutputDevice();
+    }
+  }
+}
+
+async function selectVirtualOutputDevice(){
+  if(!state.adapterInstalled) return;
+  
+  try {
+    const result = await api.getAdapterInfo();
+    if(result.info && result.info.length > 0) {
+      const device = result.info[0];
+      const virtualDevice = browserDeviceIds.outputs.find(d => 
+        d.label && (d.label.includes('VB-Audio') || d.label.includes('VBCABLE') || d.label.includes('Virtual Cable'))
+      );
+      
+      if(virtualDevice) {
+        $('outputDevice').value = virtualDevice.deviceId;
+        state.settings.outputDevice = virtualDevice.deviceId;
+        if(api) api.setOutputDevice(virtualDevice.deviceId);
+        
+        if(state.running && audioCtx && audioCtx.setSinkId) {
+          try { 
+            await audioCtx.setSinkId(virtualDevice.deviceId); 
+          } catch(e) { 
+            console.warn('setSinkId failed for virtual device:', e); 
+          }
+        }
+      }
+    }
+  } catch(e) {
+    console.error('Select virtual device error:', e);
+  }
+}
+
+async function installAdapter(){
+  if(!api || state.adapterInstalling) return;
+  
+  state.adapterInstalling = true;
+  updateAdapterUI();
+  showToast('Installing virtual audio adapter...');
+  
+  try {
+    const result = await api.installAdapter();
+    if(result.success) {
+      showToast(result.message || 'Virtual audio adapter installed successfully');
+      await checkAdapterStatus();
+      await enumerateBrowserDevices();
+      await loadDevices();
+    } else {
+      showToast('Installation failed: ' + (result.error || 'Unknown error'));
+    }
+  } catch(e) {
+    showToast('Installation error: ' + e.message);
+  } finally {
+    state.adapterInstalling = false;
+    updateAdapterUI();
+  }
+}
+
+async function uninstallAdapter(){
+  if(!api || state.adapterInstalling) return;
+  
+  if(state.adapterEnabled) {
+    state.adapterEnabled = false;
+    updateAdapterUI();
+  }
+  
+  state.adapterInstalling = true;
+  updateAdapterUI();
+  showToast('Uninstalling virtual audio adapter...');
+  
+  try {
+    const result = await api.uninstallAdapter();
+    if(result.success) {
+      state.adapterInstalled = false;
+      showToast('Virtual audio adapter uninstalled');
+      await enumerateBrowserDevices();
+      await loadDevices();
+    } else {
+      showToast('Uninstall failed: ' + (result.error || 'Unknown error'));
+    }
+  } catch(e) {
+    showToast('Uninstall error: ' + e.message);
+  } finally {
+    state.adapterInstalling = false;
+    updateAdapterUI();
+  }
 }
 
 function renderEffectsGrid(){
@@ -528,6 +734,11 @@ async function changeInputDevice(){
 }
 
 async function changeOutputDevice(){
+  if(state.adapterEnabled) {
+    await selectVirtualOutputDevice();
+    return;
+  }
+  
   const id = $('outputDevice').value;
   state.settings.outputDevice = id;
   if(api) api.setOutputDevice(id);
@@ -609,7 +820,18 @@ async function startAudio(){
     await audioCtx.resume();
     console.log('[Audio] AudioContext resumed, state:', audioCtx.state);
 
-    const selectedOutputId = state.settings.outputDevice || 'default';
+    let selectedOutputId = state.settings.outputDevice || 'default';
+    
+    if(state.adapterEnabled && state.adapterInstalled) {
+      const virtualDevice = browserDeviceIds.outputs.find(d => 
+        d.label && (d.label.includes('VB-Audio') || d.label.includes('VBCABLE') || d.label.includes('Virtual Cable'))
+      );
+      if(virtualDevice) {
+        selectedOutputId = virtualDevice.deviceId;
+        $('outputDevice').value = selectedOutputId;
+      }
+    }
+    
     if(audioCtx.setSinkId && selectedOutputId && selectedOutputId !== 'default'){
       const match = browserDeviceIds.outputs.find(d => d.deviceId === selectedOutputId);
       if(match){
@@ -872,7 +1094,38 @@ async function loadPresets(){
   catch(e) { return []; }
 }
 
-function openSettings(){ $('settingsModal').classList.add('show'); }
+function openSettings(){ 
+  $('settingsModal').classList.add('show');
+  updateSettingsAdapterStatus();
+}
+
+async function updateSettingsAdapterStatus(){
+  const statusEl = $('settingsAdapterStatus');
+  const installBtn = $('installAdapterBtn');
+  const uninstallBtn = $('uninstallAdapterBtn');
+  
+  if(!statusEl) return;
+  
+  if(state.adapterInstalling) {
+    statusEl.textContent = 'Installing...';
+    statusEl.className = 'adapter-status';
+    installBtn.disabled = true;
+    uninstallBtn.disabled = true;
+    return;
+  }
+  
+  if(state.adapterInstalled) {
+    statusEl.textContent = 'Installed';
+    statusEl.className = 'adapter-status installed';
+    installBtn.disabled = true;
+    uninstallBtn.disabled = false;
+  } else {
+    statusEl.textContent = 'Not Installed';
+    statusEl.className = 'adapter-status not-installed';
+    installBtn.disabled = false;
+    uninstallBtn.disabled = true;
+  }
+}
 function closeModal(id){ $(id).classList.remove('show'); }
 
 function showToast(msg){
@@ -903,6 +1156,28 @@ function setupEventListeners(){
     }, 2000);
     api.onLogMessage(msg => {
       console.log(`[${msg.level}] ${msg.message}`);
+    });
+    
+    api.onAdapterStatus((data) => {
+      state.adapterInstalled = data.installed;
+      updateAdapterUI();
+      updateSettingsAdapterStatus();
+    });
+    
+    api.onAdapterInstalling((data) => {
+      state.adapterInstalling = data;
+      updateAdapterUI();
+      updateSettingsAdapterStatus();
+    });
+    
+    api.onAdapterProgress((data) => {
+      if(data.stage === 'downloading') {
+        showToast(`Downloading: ${data.percent}%`);
+      } else if(data.stage === 'installing') {
+        showToast('Installing driver...');
+      } else if(data.stage === 'complete') {
+        showToast('Installation complete');
+      }
     });
   }
 }

@@ -200,6 +200,26 @@ function createTray() {
 }
 
 let audioEngine = null;
+let virtualAdapter = null;
+
+function getVirtualAdapter() {
+  if (!virtualAdapter) {
+    try {
+      virtualAdapter = require('./virtual-audio-adapter');
+      virtualAdapter.on('log', (msg) => log('INFO', msg));
+      virtualAdapter.on('error', (msg) => log('ERROR', msg));
+      virtualAdapter.on('status', (data) => {
+        sendToRenderer('adapter-status', data);
+      });
+      virtualAdapter.on('installing', (data) => {
+        sendToRenderer('adapter-installing', data);
+      });
+    } catch (e) {
+      log('ERROR', 'Failed to load virtual audio adapter: ' + e.message);
+    }
+  }
+  return virtualAdapter;
+}
 
 function getAudioEngine() {
   if (!audioEngine) {
@@ -305,6 +325,59 @@ function setupIPC() {
   ipcMain.handle('set-output-device', async (event, deviceId) => {
     const engine = getAudioEngine();
     if (engine) engine.setOutputDevice(deviceId);
+  });
+
+  ipcMain.handle('check-adapter-installed', async () => {
+    const adapter = getVirtualAdapter();
+    if (adapter) {
+      try {
+        const installed = await adapter.checkInstalled();
+        return { installed };
+      } catch (e) {
+        return { installed: false, error: e.message };
+      }
+    }
+    return { installed: false, error: 'Adapter module not available' };
+  });
+
+  ipcMain.handle('install-adapter', async (event) => {
+    const adapter = getVirtualAdapter();
+    if (adapter) {
+      try {
+        const result = await adapter.install((progress) => {
+          sendToRenderer('adapter-progress', progress);
+        });
+        return result;
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+    return { success: false, error: 'Adapter module not available' };
+  });
+
+  ipcMain.handle('uninstall-adapter', async () => {
+    const adapter = getVirtualAdapter();
+    if (adapter) {
+      try {
+        const result = await adapter.uninstall();
+        return result;
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+    return { success: false, error: 'Adapter module not available' };
+  });
+
+  ipcMain.handle('get-adapter-info', async () => {
+    const adapter = getVirtualAdapter();
+    if (adapter) {
+      try {
+        return { info: adapter.getDeviceInfo(), installed: adapter.isInstalled() };
+      } catch (e) {
+        return { info: [], installed: false, error: e.message };
+      }
+    }
+    return { info: [], installed: false };
   });
 
   ipcMain.handle('get-settings', async () => loadSettings());
