@@ -211,6 +211,8 @@ function createTray() {
 
 let audioEngine = null;
 let virtualAdapter = null;
+let lastCpuUsage = process.cpuUsage();
+let lastCpuTime = Date.now();
 
 function getVirtualAdapter() {
   if (!virtualAdapter) {
@@ -435,21 +437,27 @@ function setupIPC() {
   });
 
   ipcMain.handle('get-system-stats', async () => {
-    const cpus = os.cpus();
-    const cpuUsage = cpus.reduce((acc, cpu) => {
-      const total = Object.values(cpu.times).reduce((a, b) => a + b, 0);
-      return acc + (cpu.times.user + cpu.times.system) / total;
-    }, 0) / cpus.length * 100;
+    const now = Date.now();
+    const elapsedMs = now - lastCpuTime;
+    const currentUsage = process.cpuUsage();
+    const userDelta = currentUsage.user - lastCpuUsage.user;
+    const systemDelta = currentUsage.system - lastCpuUsage.system;
+    const cpuPercent = elapsedMs > 0 ? ((userDelta + systemDelta) / 1000 / elapsedMs) * 100 : 0;
+    lastCpuUsage = currentUsage;
+    lastCpuTime = now;
     const mem = process.memoryUsage();
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
+    const engine = audioEngine;
+    const latency = (engine && engine.stats) ? engine.stats.latency : 0;
     return {
-      cpu: Math.round(cpuUsage * 10) / 10,
+      cpu: Math.round(Math.min(100, Math.max(0, cpuPercent)) * 10) / 10,
       ramUsed: Math.round((totalMem - freeMem) / 1024 / 1024),
       ramTotal: Math.round(totalMem / 1024 / 1024),
       ramPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
       processRam: Math.round(mem.rss / 1024 / 1024),
-      uptime: Math.round(os.uptime())
+      uptime: Math.round(os.uptime()),
+      latency: latency
     };
   });
 

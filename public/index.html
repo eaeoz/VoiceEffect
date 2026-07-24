@@ -1025,6 +1025,7 @@ async function saveSettings(){
   };
   await api.saveSettings(s);
   state.settings = s;
+  if($('statLatencyRow')) $('statLatencyRow').style.display = s.showLatency === false ? 'none' : '';
   closeModal('settingsModal');
   showToast('Settings saved');
 }
