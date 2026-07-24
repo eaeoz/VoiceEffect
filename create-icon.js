@@ -176,27 +176,59 @@ function encodePNG(pixels, width, height) {
   ]);
 }
 
-function createICO(pngBuffer) {
+function resizePNG(pixels, srcSize, dstSize) {
+  const dst = Buffer.alloc(dstSize * dstSize * 4);
+  const scale = srcSize / dstSize;
+  for (let dy = 0; dy < dstSize; dy++) {
+    for (let dx = 0; dx < dstSize; dx++) {
+      const sx = Math.floor(dx * scale);
+      const sy = Math.floor(dy * scale);
+      const si = (sy * srcSize + sx) * 4;
+      const di = (dy * dstSize + dx) * 4;
+      dst[di] = pixels[si];
+      dst[di + 1] = pixels[si + 1];
+      dst[di + 2] = pixels[si + 2];
+      dst[di + 3] = pixels[si + 3];
+    }
+  }
+  return dst;
+}
+
+function createICO(pngBuffers) {
+  const count = pngBuffers.length;
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);
-  header.writeUInt16LE(1, 4);
+  header.writeUInt16LE(count, 4);
 
-  const dirEntry = Buffer.alloc(16);
-  dirEntry[0] = 0;
-  dirEntry[1] = 0;
-  dirEntry[2] = 0;
-  dirEntry[3] = 0;
-  dirEntry.writeUInt16LE(1, 4);
-  dirEntry.writeUInt16LE(32, 6);
-  dirEntry.writeUInt32LE(pngBuffer.length, 8);
-  dirEntry.writeUInt32LE(22, 12);
+  const dirEntries = [];
+  let dataOffset = 6 + count * 16;
 
-  return Buffer.concat([header, dirEntry, pngBuffer]);
+  for (const { size, buffer } of pngBuffers) {
+    const entry = Buffer.alloc(16);
+    entry[0] = size < 256 ? size : 0;
+    entry[1] = size < 256 ? size : 0;
+    entry[2] = 0;
+    entry[3] = 0;
+    entry.writeUInt16LE(1, 4);
+    entry.writeUInt16LE(32, 6);
+    entry.writeUInt32LE(buffer.length, 8);
+    entry.writeUInt32LE(dataOffset, 12);
+    dirEntries.push(entry);
+    dataOffset += buffer.length;
+  }
+
+  return Buffer.concat([header, ...dirEntries, ...pngBuffers.map(e => e.buffer)]);
 }
 
 console.log('Generating icon...');
 const png = createPNG();
 fs.writeFileSync(path.join(dataDir, 'icon.png'), png);
-fs.writeFileSync(path.join(dataDir, 'icon.ico'), createICO(png));
+
+const icoSizes = [16, 32, 48, 256];
+const icoBuffers = icoSizes.map(size => ({
+  size,
+  buffer: encodePNG(resizePNG(png, SIZE, size), size, size)
+}));
+fs.writeFileSync(path.join(dataDir, 'icon.ico'), createICO(icoBuffers));
 console.log('Icons created: data/icon.png, data/icon.ico');
