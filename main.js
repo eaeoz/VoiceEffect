@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, Menu, Tray, nativeImage, dialog, scr
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
 
 let mainWindow = null;
 let tray = null;
@@ -49,6 +50,7 @@ function loadSettings() {
     outputSensitivity: 100,
     autoStartVideo: false,
     videoDevice: null,
+    videoDeviceLabel: null,
     activeVideoEffect: 'none',
     activeProfileId: null,
     effects: {
@@ -215,6 +217,8 @@ let audioEngine = null;
 let virtualAdapter = null;
 let lastCpuUsage = process.cpuUsage();
 let lastCpuTime = Date.now();
+let obsHttpServer = null;
+let videoStateMain = { effect: 'none', videoDevice: null, videoDeviceLabel: null };
 
 function getVirtualAdapter() {
   if (!virtualAdapter) {
@@ -551,9 +555,114 @@ function setupIPC() {
   ipcMain.handle('open-obs-browser-source', async (event, url) => {
     shell.openExternal(url || 'http://localhost:8080');
   });
+
+  ipcMain.handle('set-video-state', async (event, data) => {
+    videoStateMain.effect = data.effect || 'none';
+    videoStateMain.videoDevice = data.videoDevice || null;
+    videoStateMain.videoDeviceLabel = data.videoDeviceLabel || null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('video-state-update', videoStateMain);
+    }
+  });
+
+  ipcMain.handle('get-video-state', async () => videoStateMain);
+
+  ipcMain.handle('start-obs-server', async () => {
+    return startObsServer();
+  });
+
+  ipcMain.handle('stop-obs-server', async () => {
+    return stopObsServer();
+  });
+
+  ipcMain.on('obs-frame', (event, jpegBase64) => {
+    const buf = Buffer.from(jpegBase64, 'base64');
+    broadcastFrame(buf);
+  });
 }
 
 let sendBlocked = false;
+
+let obsClients = [];
+let latestFrame = null;
+
+function startObsServer() {
+  if (obsHttpServer) return { success: true, port: 8080 };
+  try {
+    obsHttpServer = http.createServer((req, res) => {
+      if (req.url === '/stream') {
+        res.writeHead(200, {
+          'Content-Type': 'multipart/x-mixed-replace; boundary=--frame',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'Access-Control-Allow-Origin': '*'
+        });
+        if (latestFrame) {
+          res.write('--frame\r\nContent-Type: image/jpeg\r\n\r\n');
+          res.write(latestFrame);
+          res.write('\r\n');
+        }
+        obsClients.push(res);
+        req.on('close', () => {
+          obsClients = obsClients.filter(c => c !== res);
+        });
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(getObsPageHTML());
+    });
+    obsHttpServer.listen(8080, '127.0.0.1', () => {
+      log('INFO', 'OBS HTTP server started on port 8080');
+    });
+    obsHttpServer.on('error', (e) => {
+      log('ERROR', 'OBS HTTP server error: ' + e.message);
+      obsHttpServer = null;
+    });
+    return { success: true, port: 8080 };
+  } catch(e) {
+    log('ERROR', 'Failed to start OBS server: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+function stopObsServer() {
+  obsClients.forEach(c => { try { c.end(); } catch(e) {} });
+  obsClients = [];
+  if (obsHttpServer) {
+    obsHttpServer.close();
+    obsHttpServer = null;
+    log('INFO', 'OBS HTTP server stopped');
+  }
+  return { success: true };
+}
+
+function broadcastFrame(jpegBuffer) {
+  latestFrame = jpegBuffer;
+  if (obsClients.length === 0) return;
+  const dead = [];
+  obsClients.forEach(res => {
+    try {
+      res.write('--frame\r\nContent-Type: image/jpeg\r\n\r\n');
+      res.write(jpegBuffer);
+      res.write('\r\n');
+    } catch(e) { dead.push(res); }
+  });
+  if (dead.length) obsClients = obsClients.filter(c => !dead.includes(c));
+}
+
+function getObsPageHTML() {
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>VideoEffects-OBS</title>
+<style>*{margin:0;padding:0}body{background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;height:100vh}img{max-width:100%;max-height:100%;display:block}</style>
+</head><body>
+<img id="stream" src="/stream" alt="Waiting for video stream...">
+<script>
+var img=document.getElementById('stream');
+img.onerror=function(){setTimeout(function(){img.src='/stream?'+Date.now()},2000);};
+</script>
+</body></html>`;
+}
 
 function sendToRenderer(channel, data) {
   if (sendBlocked) return;
