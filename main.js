@@ -144,7 +144,7 @@ function createWindow() {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
-        webSecurity: false,
+        webSecurity: true,
         backgroundThrottling: false
       }
   });
@@ -158,9 +158,24 @@ function createWindow() {
       mainWindow.show();
     }
 
-    mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
+    const appUrl = getAppUrl();
+    if (appUrl) {
+      mainWindow.loadURL(appUrl);
+    } else {
+      mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
+    }
     setTimeout(() => { sendBlocked = false; }, 500);
-    if (mainWindow.webContents) mainWindow.webContents.setBackgroundThrottling(false);
+    if (mainWindow.webContents) {
+      mainWindow.webContents.setBackgroundThrottling(false);
+      mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+        try {
+          const logFile = path.join(getLogsDir(), `app-${new Date().toISOString().slice(0, 10)}.log`);
+          const ts = new Date().toLocaleTimeString('en-GB');
+          const lvl = ['VERBOSE','INFO','WARNING','ERROR'][level] || 'LOG';
+          fs.appendFileSync(logFile, `[${ts}] [RENDERER][${lvl}] ${message}\n`);
+        } catch(e) {}
+      });
+    }
   });
 
   mainWindow.on('close', (e) => {
@@ -578,6 +593,15 @@ function setupIPC() {
   });
   ipcMain.handle('close-window', () => { if (mainWindow) mainWindow.close(); });
   ipcMain.handle('get-app-port', () => { return appHttpServer && appHttpServer.address() ? appHttpServer.address().port : null; });
+  ipcMain.handle('read-mediapipe-module', () => {
+    const mjsPath = path.join(__dirname, 'node_modules', '@mediapipe', 'tasks-vision', 'vision_bundle.mjs');
+    return fs.readFileSync(mjsPath, 'utf8');
+  });
+  ipcMain.handle('read-mediapipe-wasm', (event, filename) => {
+    const wasmPath = path.join(__dirname, 'node_modules', '@mediapipe', 'tasks-vision', 'wasm', filename);
+    if (fs.existsSync(wasmPath)) return fs.readFileSync(wasmPath);
+    return null;
+  });
 
   ipcMain.handle('open-external', async (event, url) => {
     if (url.startsWith('http')) shell.openExternal(url);

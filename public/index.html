@@ -1527,58 +1527,59 @@ let obsStreamActive = false;
 
 async function initMediaPipe() {
   if (videoState.mediapipeReady) return true;
+  const logTag = '[Video][MediaPipe]';
   try {
-    let baseUrl = '/mediapipe';
+    let baseUrl = 'http://127.0.0.1';
     try {
       if (api && api.getAppPort) {
         const port = await api.getAppPort();
-        if (port) baseUrl = 'http://127.0.0.1:' + port + '/mediapipe';
+        if (port) baseUrl = 'http://127.0.0.1:' + port;
       }
-    } catch(e) { console.warn('[Video] Could not get app port, using relative URL'); }
-    console.log('[Video] Base URL for MediaPipe:', baseUrl);
+    } catch(e) { console.warn(logTag, 'Could not get app port:', e.message); }
+    const importUrl = baseUrl + '/mediapipe/vision_bundle.mjs';
+    const wasmUrl = baseUrl + '/mediapipe/wasm';
+    console.log(logTag, 'import URL:', importUrl, 'WASM URL:', wasmUrl);
+    console.log(logTag, 'typeof vision=' + typeof vision, 'window.vision=' + typeof window.vision);
+    
     if (typeof vision === 'undefined') {
-      console.warn('[Video] MediaPipe vision not loaded, importing module...');
+      console.log(logTag, 'vision undefined, attempting import...');
       try {
-        const mod = await import(baseUrl + '/vision_bundle.mjs');
+        const mod = await import(importUrl);
         window.vision = mod;
-        console.log('[Video] MediaPipe module imported:', Object.keys(mod));
+        console.log(logTag, 'Import succeeded, keys:', Object.keys(mod));
       } catch(importErr) {
-        console.error('[Video] MediaPipe module import failed:', importErr);
+        console.error(logTag, 'Import FAILED:', importErr.message, importErr.stack);
         videoState.mediapipeInitError = 'Failed to load MediaPipe module: ' + importErr.message;
         return false;
       }
+    } else {
+      console.log(logTag, 'vision already available');
     }
-    if (typeof vision === 'undefined') {
-      console.error('[Video] MediaPipe vision not available');
-      videoState.mediapipeInitError = 'MediaPipe vision module not loaded';
-      return false;
-    }
-    console.log('[Video] Initializing MediaPipe FaceLandmarker...');
+    console.log(logTag, 'Initializing FaceLandmarker...');
     const Vision = vision;
-    const wasmUrl = baseUrl + '/wasm';
-    console.log('[Video] WASM URL:', wasmUrl);
+    console.log(logTag, 'Loading WASM from:', wasmUrl);
     const filesetResolver = await Vision.FilesetResolver.forVisionTasks(wasmUrl);
-    console.log('[Video] Fileset resolved, loading model...');
+    console.log(logTag, 'Fileset resolved, loading model...');
     try {
       videoState.faceLandmarker = await Vision.FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task', delegate: 'GPU' },
         outputFaceBlendshapes: false, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
       });
-      console.log('[Video] FaceLandmarker loaded with GPU delegate');
+      console.log(logTag, 'FaceLandmarker loaded with GPU delegate');
     } catch(gpuErr) {
-      console.warn('[Video] GPU delegate failed, trying CPU:', gpuErr.message);
+      console.warn(logTag, 'GPU delegate failed, trying CPU:', gpuErr.message);
       videoState.faceLandmarker = await Vision.FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task', delegate: 'CPU' },
         outputFaceBlendshapes: false, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
       });
-      console.log('[Video] FaceLandmarker loaded with CPU delegate');
+      console.log(logTag, 'FaceLandmarker loaded with CPU delegate');
     }
     videoState.mediapipeReady = true;
     videoState.mediapipeInitError = null;
-    console.log('[Video] MediaPipe FaceLandmarker initialized successfully');
+    console.log(logTag, 'MediaPipe FaceLandmarker initialized successfully');
     return true;
   } catch(e) {
-    console.error('[Video] MediaPipe init error:', e.message || e);
+    console.error(logTag, 'MediaPipe init error:', e.message || e);
     videoState.mediapipeInitError = e.message || String(e);
     return false;
   }
@@ -1618,6 +1619,16 @@ async function startVideo() {
   console.log('[Video] Starting with device:', deviceId, JSON.stringify(constraints));
   try {
     videoState.stream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch(e) {
+    if (e.name === 'OverconstrainedError' && deviceId !== 'default') {
+      console.warn('[Video] Device', deviceId, 'not available, retrying with default');
+      delete constraints.video.deviceId;
+      videoState.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } else {
+      throw e;
+    }
+  }
+  try {
     console.log('[Video] Got stream:', videoState.stream.getTracks().map(t => t.kind + ':' + t.label).join(', '));
     const videoEl = $('videoInput');
     videoEl.srcObject = videoState.stream;
