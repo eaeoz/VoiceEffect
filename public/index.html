@@ -2048,6 +2048,7 @@ function drawFaceDotsEffect(ctx, video, w, h) {
 }
 
 // ===== ACCESSORIES =====
+const HEAD_ACCESSORIES = new Set(['crown','party_hat','witch_hat','halo','horns','bunny_ears','cat_ears','dog_ears','antlers','headband','bow']);
 function drawAccessory(ctx, video, w, h, type) {
   ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
   if (!faceLandmarks) return;
@@ -2061,7 +2062,10 @@ function drawAccessory(ctx, video, w, h, type) {
   const faceWidth = eyeDist * 2.5;
   const faceHeight = Math.sqrt((chin.y - forehead.y) ** 2 + (chin.x - forehead.x) ** 2);
   const angle = Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x);
-  ctx.save(); ctx.translate(eyeMid.x, eyeMid.y); ctx.rotate(angle);
+  const isHead = HEAD_ACCESSORIES.has(type);
+  const anchor = isHead ? forehead : eyeMid;
+  ctx.save(); ctx.translate(anchor.x, anchor.y); ctx.rotate(angle);
+  if (isHead) ctx.scale(1, -1);
   switch(type) {
     case 'glasses':
       ctx.strokeStyle = '#444'; ctx.lineWidth = 3;
