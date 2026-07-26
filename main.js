@@ -41,6 +41,7 @@ function loadSettings() {
     outputVolume: 80,
     theme: 'dark',
     autoStart: false,
+    startMinimized: false,
     minimizeToTray: true,
     showLatency: true,
     adapterEnabled: false,
@@ -146,7 +147,10 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     sendBlocked = true;
-    mainWindow.show();
+    const settings = loadSettings();
+    if (!settings.startMinimized) {
+      mainWindow.show();
+    }
 
     mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
     setTimeout(() => { sendBlocked = false; }, 500);

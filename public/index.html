@@ -348,6 +348,7 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
       <label class="form-label">UI Options</label>
       <div style="display:flex;gap:12px;font-size:11px;color:var(--text-secondary)">
         <label><input type="checkbox" id="setMinTray" checked> Minimize to tray</label>
+        <label><input type="checkbox" id="setStartMinimized"> Start minimized</label>
         <label><input type="checkbox" id="setShowLatency" checked> Show latency</label>
         <label><input type="checkbox" id="setAutoStart"> Auto-start</label>
       </div>
@@ -969,6 +970,7 @@ async function loadSettings(){
     if($('setMinTray')) $('setMinTray').checked = s.minimizeToTray !== false;
     if($('setShowLatency')) $('setShowLatency').checked = s.showLatency !== false;
     if($('statLatencyRow')) $('statLatencyRow').style.display = s.showLatency === false ? 'none' : '';
+    if($('setStartMinimized')) $('setStartMinimized').checked = s.startMinimized || false;
     if($('setAutoStart')) $('setAutoStart').checked = s.autoStart || false;
     if($('inputSens')){ $('inputSens').value = s.inputSensitivity || 300; $('inputSensVal').textContent = s.inputSensitivity || 300; }
     if($('outputSens')){ $('outputSens').value = s.outputSensitivity || 100; $('outputSensVal').textContent = s.outputSensitivity || 100; }
@@ -1000,6 +1002,7 @@ async function saveSettings(){
     inputSensitivity: parseInt($('inputSens')?.value) || 300,
     outputSensitivity: parseInt($('outputSens')?.value) || 100,
     minimizeToTray: $('setMinTray').checked,
+    startMinimized: $('setStartMinimized').checked,
     showLatency: $('setShowLatency').checked,
     autoStart: $('setAutoStart').checked,
     effects: state.activeEffects
