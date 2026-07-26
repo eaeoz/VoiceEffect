@@ -245,6 +245,7 @@ background-repeat:no-repeat;background-position:right 6px center}
 .obs-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);border-radius:var(--radius-xs);font-size:10px;font-weight:600;cursor:pointer;transition:.2s;white-space:nowrap}
 .obs-btn:hover{border-color:#06b6d4;color:#06b6d4;background:rgba(6,182,212,0.1)}
 .obs-btn.active{border-color:#06b6d4;color:#fff;background:rgba(6,182,212,0.3)}
+.obs-btn:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none}
 
 .video-preview-overlay{display:none;position:fixed;top:50px;right:20px;width:320px;background:rgba(10,10,26,0.95);border:1px solid var(--border);border-radius:var(--radius);z-index:90;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);backdrop-filter:blur(20px)}
 .video-preview-overlay.visible{display:block}
@@ -438,7 +439,7 @@ background-repeat:no-repeat;background-position:right 6px center}
             <option value="edge_detect">Edge Detect</option>
           </optgroup>
         </select>
-        <button class="obs-btn" onclick="openOBSSource()" title="Open OBS Browser Source">
+        <button class="obs-btn" id="obsBtn" onclick="openOBSSource()" title="Open OBS Browser Source" disabled>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
             <polyline points="15 3 21 3 21 9"/>
@@ -446,7 +447,7 @@ background-repeat:no-repeat;background-position:right 6px center}
           </svg>
           OBS
         </button>
-        <button class="obs-btn" id="videoPreviewBtn" onclick="toggleVideoPreview()" title="Show/Hide Video Preview">
+        <button class="obs-btn" id="videoPreviewBtn" onclick="toggleVideoPreview()" title="Show/Hide Video Preview" disabled>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
             <circle cx="12" cy="12" r="3"/>
@@ -1575,7 +1576,10 @@ async function startVideo() {
     console.log('[Video] Video playing, readyState:', videoEl.readyState, 'size:', videoEl.videoWidth, 'x', videoEl.videoHeight);
     await initMediaPipe();
     videoState.running = true;
+    if (api) { await api.startObsServer(); obsStreamActive = true; }
     $('videoPowerBtn').classList.add('active');
+    $('obsBtn').disabled = false;
+    $('videoPreviewBtn').disabled = false;
     showToast('Video effects started');
     console.log('[Video] Effect:', videoState.effect, 'FaceLandmarker:', !!videoState.faceLandmarker);
     enumerateVideoDevices();
@@ -1593,7 +1597,11 @@ function stopVideo() {
   if (videoEl) videoEl.srcObject = null;
   videoState.running = false;
   obsStreamActive = false;
+  if (api) api.stopObsServer();
   $('videoPowerBtn').classList.remove('active');
+  $('obsBtn').disabled = true;
+  $('videoPreviewBtn').disabled = true;
+  $('videoPreviewOverlay').classList.remove('visible');
   showToast('Video effects stopped');
 }
 
@@ -1624,14 +1632,8 @@ function changeVideoEffect() {
 }
 
 async function openOBSSource() {
-  if (api) {
-    videoState.deviceLabel = getSelectedVideoDeviceLabel();
-    await api.startObsServer();
-    obsStreamActive = true;
-    if (!videoState.running) await startVideo();
-    api.openObsBrowserSource('http://127.0.0.1:8080');
-    if (api) api.setVideoState({ effect: videoState.effect, videoDevice: state.settings.videoDevice, videoDeviceLabel: videoState.deviceLabel || state.settings.videoDeviceLabel });
-  }
+  if (!obsStreamActive) { showToast('Start video first'); return; }
+  if (api) api.openObsBrowserSource('http://127.0.0.1:8080');
   showToast('OBS Browser Source opened');
 }
 
