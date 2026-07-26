@@ -144,7 +144,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: true
+      webSecurity: true,
+      backgroundThrottling: false
     }
   });
 
@@ -159,6 +160,7 @@ function createWindow() {
 
     mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
     setTimeout(() => { sendBlocked = false; }, 500);
+    if (mainWindow.webContents) mainWindow.webContents.setBackgroundThrottling(false);
   });
 
   mainWindow.on('close', (e) => {

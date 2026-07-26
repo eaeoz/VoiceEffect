@@ -1565,21 +1565,28 @@ async function startVideo() {
   const deviceId = state.settings.videoDevice || 'default';
   const constraints = { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } };
   if (deviceId && deviceId !== 'default') constraints.video.deviceId = { exact: deviceId };
+  console.log('[Video] Starting with device:', deviceId, JSON.stringify(constraints));
   try {
     videoState.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    console.log('[Video] Got stream:', videoState.stream.getTracks().map(t => t.kind + ':' + t.label).join(', '));
     const videoEl = $('videoInput');
     videoEl.srcObject = videoState.stream;
     await videoEl.play();
+    console.log('[Video] Video playing, readyState:', videoEl.readyState, 'size:', videoEl.videoWidth, 'x', videoEl.videoHeight);
     await initMediaPipe();
     videoState.running = true;
     $('videoPowerBtn').classList.add('active');
     showToast('Video effects started');
+    console.log('[Video] Effect:', videoState.effect, 'FaceLandmarker:', !!videoState.faceLandmarker);
     enumerateVideoDevices();
+    if (videoRenderInterval) clearInterval(videoRenderInterval);
+    videoRenderInterval = setInterval(renderVideoFrame, 33);
     renderVideoFrame();
   } catch(e) { console.error('[Video] Start error:', e); showToast('Camera error: ' + e.message); }
 }
 
 function stopVideo() {
+  if (videoRenderInterval) { clearInterval(videoRenderInterval); videoRenderInterval = null; }
   if (videoState.stream) { videoState.stream.getTracks().forEach(t => t.stop()); videoState.stream = null; }
   if (videoState.animFrame) { cancelAnimationFrame(videoState.animFrame); videoState.animFrame = null; }
   const videoEl = $('videoInput');
@@ -1608,7 +1615,9 @@ function changeVideoDevice() {
 }
 
 function changeVideoEffect() {
-  videoState.effect = $('videoEffectSelect').value;
+  const val = $('videoEffectSelect').value;
+  console.log('[Video] Effect changed to:', val);
+  videoState.effect = val;
   state.settings.activeVideoEffect = videoState.effect;
   if (api) api.saveSettings(state.settings);
   if (api) api.setVideoState({ effect: videoState.effect, videoDevice: state.settings.videoDevice, videoDeviceLabel: state.settings.videoDeviceLabel });
@@ -1654,12 +1663,19 @@ function closeVideoPreview() {
 
 let videoRenderTime = 0;
 let lastObsFrameTime = 0;
+let videoRenderInterval = null;
+let renderLogCount = 0;
 function renderVideoFrame() {
-  if (!videoState.running) return;
-  videoState.animFrame = requestAnimationFrame(renderVideoFrame);
   const video = $('videoInput');
   const canvas = $('videoCanvas');
-  if (!video || !canvas || video.readyState < 2) return;
+  if (!video || !canvas) { if (renderLogCount < 3) { console.error('[Video] renderVideoFrame: video or canvas not found'); renderLogCount++; } return; }
+  if (video.readyState < 2) { if (renderLogCount < 3) { console.warn('[Video] renderVideoFrame: readyState=', video.readyState); renderLogCount++; } return; }
+  renderLogCount = 0;
+  if (video.videoWidth && video.videoHeight && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    console.log('[Video] Canvas resized to match video:', canvas.width, 'x', canvas.height);
+  }
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
@@ -1687,14 +1703,20 @@ function renderVideoFrame() {
         const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         const base64 = dataUrl.split(',')[1];
         api.sendObsFrame(base64);
-      } catch(e) {}
+      } catch(e) { console.error('[Video] Frame send error:', e); }
     }
   }
 }
 
 // ===== VIDEO EFFECTS =====
+let lastEffectLogTime = 0;
 function applyVideoEffect(ctx, video, w, h, effect) {
   const hasFace = faceLandmarks && faceLandmarks.length > 0;
+  const now = Date.now();
+  if (now - lastEffectLogTime > 2000) {
+    lastEffectLogTime = now;
+    console.log('[Video] Applying effect:', effect, 'hasFace:', hasFace, 'canvas:', video.canvas?.width, 'x', video.canvas?.height);
+  }
   switch(effect) {
     // Face Mesh
     case 'face_mesh': drawFaceMeshEffect(ctx, video, w, h); break;
