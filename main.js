@@ -140,13 +140,13 @@ function createWindow() {
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a1a',
     show: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      backgroundThrottling: false
-    }
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        webSecurity: false,
+        backgroundThrottling: false
+      }
   });
 
   mainWindow.loadURL('data:text/html,' + encodeURIComponent(createLoadingHTML()));
@@ -219,8 +219,63 @@ let audioEngine = null;
 let virtualAdapter = null;
 let lastCpuUsage = process.cpuUsage();
 let lastCpuTime = Date.now();
+let appHttpServer = null;
 let obsHttpServer = null;
 let videoStateMain = { effect: 'none', videoDevice: null, videoDeviceLabel: null };
+
+function startAppServer() {
+  if (appHttpServer) return;
+  const mimeTypes = {
+    '.html': 'text/html', '.js': 'application/javascript', '.mjs': 'application/javascript',
+    '.cjs': 'application/javascript', '.css': 'text/css', '.json': 'application/json',
+    '.wasm': 'application/wasm', '.png': 'image/png', '.ico': 'image/x-icon',
+    '.svg': 'image/svg+xml', '.task': 'application/octet-stream'
+  };
+  appHttpServer = http.createServer((req, res) => {
+    let urlPath = decodeURIComponent(req.url.split('?')[0]);
+    if (urlPath === '/') urlPath = '/public/index.html';
+
+    let filePath = null;
+    const publicDir = path.join(__dirname, 'public');
+    const nodeModDir = path.join(__dirname, 'node_modules');
+    const dataDir = path.join(__dirname, 'data');
+
+    if (urlPath.startsWith('/wasm/')) {
+      filePath = path.join(nodeModDir, '@mediapipe', 'tasks-vision', 'wasm', urlPath.slice(6));
+    } else if (urlPath.startsWith('/mediapipe/')) {
+      filePath = path.join(nodeModDir, '@mediapipe', 'tasks-vision', urlPath.slice(11));
+    } else if (urlPath.startsWith('/data/')) {
+      filePath = path.join(dataDir, urlPath.slice(6));
+    } else if (urlPath.startsWith('/node_modules/')) {
+      filePath = path.join(__dirname, urlPath);
+    } else {
+      filePath = path.join(publicDir, urlPath);
+    }
+
+    if (!filePath || !fs.existsSync(filePath)) {
+      res.writeHead(404); res.end('Not found'); return;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*' });
+    fs.createReadStream(filePath).pipe(res);
+  });
+  appHttpServer.listen(0, '127.0.0.1', () => {
+    const port = appHttpServer.address().port;
+    log('INFO', 'App HTTP server started on port ' + port);
+  });
+  appHttpServer.on('error', (e) => {
+    log('ERROR', 'App HTTP server error: ' + e.message);
+  });
+}
+
+function getAppUrl() {
+  if (appHttpServer) {
+    const port = appHttpServer.address().port;
+    return 'http://127.0.0.1:' + port + '/index.html';
+  }
+  return null;
+}
 
 function getVirtualAdapter() {
   if (!virtualAdapter) {
@@ -522,6 +577,7 @@ function setupIPC() {
     }
   });
   ipcMain.handle('close-window', () => { if (mainWindow) mainWindow.close(); });
+  ipcMain.handle('get-app-port', () => { return appHttpServer && appHttpServer.address() ? appHttpServer.address().port : null; });
 
   ipcMain.handle('open-external', async (event, url) => {
     if (url.startsWith('http')) shell.openExternal(url);
@@ -680,6 +736,8 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+
+  startAppServer();
 
   const ses = session.defaultSession;
   ses.setPermissionRequestHandler((webContents, permission, callback) => {

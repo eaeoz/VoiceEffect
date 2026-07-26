@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; connect-src 'self' https://*.github.com https://cdn.jsdelivr.net https://unpkg.com; media-src 'self' blob: mediastream:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; frame-src 'self' blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; connect-src 'self' https://*.github.com https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com blob:; media-src 'self' blob: mediastream:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; frame-src 'self' blob:;">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VoiceEffect</title>
 <style>
@@ -257,7 +257,7 @@ background-repeat:no-repeat;background-position:right 6px center}
 .video-preview-btn:hover{background:rgba(6,182,212,0.2);color:#06b6d4}
 #videoCanvas{width:100%;height:auto;display:block;background:#000}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.js" crossorigin="anonymous"></script>
+
 </head>
 <body>
 <div class="titlebar">
@@ -1521,27 +1521,67 @@ function setupEventListeners(){
 }
 
 // ===== VIDEO EFFECTS ENGINE =====
-let videoState = { running: false, stream: null, effect: 'none', animFrame: null, faceLandmarker: null, mediapipeReady: false, dragging: false, expanded: false, deviceLabel: null };
+let videoState = { running: false, stream: null, effect: 'none', animFrame: null, faceLandmarker: null, mediapipeReady: false, dragging: false, expanded: false, deviceLabel: null, faceDetected: false, mediapipeInitError: null };
 let faceLandmarks = null;
 let obsStreamActive = false;
 
 async function initMediaPipe() {
   if (videoState.mediapipeReady) return true;
   try {
-    if (typeof vision === 'undefined' && typeof FaceLandmarker === 'undefined') {
-      console.warn('[Video] MediaPipe vision not loaded from CDN, effects will use limited mode');
+    let baseUrl = '/mediapipe';
+    try {
+      if (api && api.getAppPort) {
+        const port = await api.getAppPort();
+        if (port) baseUrl = 'http://127.0.0.1:' + port + '/mediapipe';
+      }
+    } catch(e) { console.warn('[Video] Could not get app port, using relative URL'); }
+    console.log('[Video] Base URL for MediaPipe:', baseUrl);
+    if (typeof vision === 'undefined') {
+      console.warn('[Video] MediaPipe vision not loaded, importing module...');
+      try {
+        const mod = await import(baseUrl + '/vision_bundle.mjs');
+        window.vision = mod;
+        console.log('[Video] MediaPipe module imported:', Object.keys(mod));
+      } catch(importErr) {
+        console.error('[Video] MediaPipe module import failed:', importErr);
+        videoState.mediapipeInitError = 'Failed to load MediaPipe module: ' + importErr.message;
+        return false;
+      }
+    }
+    if (typeof vision === 'undefined') {
+      console.error('[Video] MediaPipe vision not available');
+      videoState.mediapipeInitError = 'MediaPipe vision module not loaded';
       return false;
     }
-    const Vision = typeof vision !== 'undefined' ? vision : window;
-    const filesetResolver = await Vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');
-    videoState.faceLandmarker = await Vision.FaceLandmarker.createFromOptions(filesetResolver, {
-      baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task', delegate: 'GPU' },
-      outputFaceBlendshapes: false, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
-    });
+    console.log('[Video] Initializing MediaPipe FaceLandmarker...');
+    const Vision = vision;
+    const wasmUrl = baseUrl + '/wasm';
+    console.log('[Video] WASM URL:', wasmUrl);
+    const filesetResolver = await Vision.FilesetResolver.forVisionTasks(wasmUrl);
+    console.log('[Video] Fileset resolved, loading model...');
+    try {
+      videoState.faceLandmarker = await Vision.FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task', delegate: 'GPU' },
+        outputFaceBlendshapes: false, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
+      });
+      console.log('[Video] FaceLandmarker loaded with GPU delegate');
+    } catch(gpuErr) {
+      console.warn('[Video] GPU delegate failed, trying CPU:', gpuErr.message);
+      videoState.faceLandmarker = await Vision.FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task', delegate: 'CPU' },
+        outputFaceBlendshapes: false, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
+      });
+      console.log('[Video] FaceLandmarker loaded with CPU delegate');
+    }
     videoState.mediapipeReady = true;
-    console.log('[Video] MediaPipe FaceLandmarker initialized');
+    videoState.mediapipeInitError = null;
+    console.log('[Video] MediaPipe FaceLandmarker initialized successfully');
     return true;
-  } catch(e) { console.error('[Video] MediaPipe init error:', e); return false; }
+  } catch(e) {
+    console.error('[Video] MediaPipe init error:', e.message || e);
+    videoState.mediapipeInitError = e.message || String(e);
+    return false;
+  }
 }
 
 async function enumerateVideoDevices() {
@@ -1564,8 +1604,11 @@ async function enumerateVideoDevices() {
 }
 
 async function toggleVideo() {
-  if (videoState.running) { stopVideo(); }
-  else { await startVideo(); }
+  console.log('[Video] toggleVideo called, running:', videoState.running);
+  try {
+    if (videoState.running) { stopVideo(); }
+    else { await startVideo(); }
+  } catch(e) { console.error('[Video] toggleVideo error:', e); showToast('Error: ' + e.message); }
 }
 
 async function startVideo() {
@@ -1580,18 +1623,17 @@ async function startVideo() {
     videoEl.srcObject = videoState.stream;
     await videoEl.play();
     console.log('[Video] Video playing, readyState:', videoEl.readyState, 'size:', videoEl.videoWidth, 'x', videoEl.videoHeight);
-    await initMediaPipe();
     videoState.running = true;
     if (api) { await api.startObsServer(); obsStreamActive = true; }
     $('videoPowerBtn').classList.add('active');
     $('obsBtn').disabled = false;
     $('videoPreviewBtn').disabled = false;
     showToast('Video effects started');
-    console.log('[Video] Effect:', videoState.effect, 'FaceLandmarker:', !!videoState.faceLandmarker);
     enumerateVideoDevices();
     if (videoRenderInterval) clearInterval(videoRenderInterval);
     videoRenderInterval = setInterval(renderVideoFrame, 33);
     renderVideoFrame();
+    initMediaPipe().then(ok => { console.log('[Video] MediaPipe init result:', ok, 'FaceLandmarker:', !!videoState.faceLandmarker); }).catch(e => { console.error('[Video] MediaPipe init failed:', e); });
   } catch(e) { console.error('[Video] Start error:', e); showToast('Camera error: ' + e.message); }
 }
 
@@ -1669,6 +1711,16 @@ function closeVideoPreview() {
   if (btn) btn.classList.remove('active');
 }
 
+function requiresFace(effect) {
+  return ['face_mesh','face_contour','face_glow','face_dots',
+    'glasses','sunglasses','heart_glasses','mask','crown','party_hat','witch_hat','halo','horns','bunny_ears','cat_ears','dog_ears','antlers','headband','bow',
+    'war_paint','clown_makeup','cat_face','skull_face','spider_web','butterfly_mask',
+    'mustache','beard','goatee','handlebar',
+    'big_eyes','tiny_eyes','big_mouth','tiny_mouth','big_nose','tiny_nose','long_face','wide_face','pinch_face','bulge_face','alien_head','fish_eye',
+    'laser_eyes','glow_eyes','fire_eyes','rainbow_eyes','x_eyes',
+    'clown_nose','rudolph_nose','pig_nose',
+    'fire_head','electric_head','aura'].includes(effect);
+}
 let videoRenderTime = 0;
 let lastObsFrameTime = 0;
 let videoRenderInterval = null;
@@ -1702,6 +1754,42 @@ function renderVideoFrame() {
     ctx.restore();
   } else {
     applyVideoEffect(ctx, video, w, h, effect);
+    if (requiresFace(effect) && !faceLandmarks) {
+      ctx.save();
+      const padding = 8;
+      const fontSize = Math.max(14, Math.round(h * 0.025));
+      ctx.font = 'bold ' + fontSize + 'px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      const label = videoState.mediapipeInitError ? 'Face detection unavailable' : 'Searching for face...';
+      const metrics = ctx.measureText(label);
+      const boxW = metrics.width + padding * 2;
+      const errFontSize = Math.max(10, Math.round(fontSize * 0.7));
+      const boxH = videoState.mediapipeInitError ? fontSize + errFontSize + padding * 2 + 8 : fontSize + padding * 2;
+      const boxX = 10;
+      const boxY = 10;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.beginPath();
+      const rr = 6;
+      ctx.moveTo(boxX + rr, boxY);
+      ctx.lineTo(boxX + boxW - rr, boxY);
+      ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + rr);
+      ctx.lineTo(boxX + boxW, boxY + boxH - rr);
+      ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - rr, boxY + boxH);
+      ctx.lineTo(boxX + rr, boxY + boxH);
+      ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - rr);
+      ctx.lineTo(boxX, boxY + rr);
+      ctx.quadraticCurveTo(boxX, boxY, boxX + rr, boxY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = videoState.mediapipeInitError ? '#ef4444' : '#f59e0b';
+      ctx.fillText(label, boxX + padding, boxY + padding + fontSize - 2);
+      if (videoState.mediapipeInitError) {
+        ctx.font = Math.max(10, Math.round(fontSize * 0.7)) + 'px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        const errText = videoState.mediapipeInitError.length > 60 ? videoState.mediapipeInitError.substring(0, 60) + '...' : videoState.mediapipeInitError;
+        ctx.fillText(errText, boxX + padding, boxY + padding + fontSize - 2 + fontSize + 4);
+      }
+      ctx.restore();
+    }
   }
   const now = Date.now();
   if (now - lastObsFrameTime > 66) {

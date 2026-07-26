@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('api', {
   minimize: () => ipcRenderer.invoke('minimize-window'),
   maximize: () => ipcRenderer.invoke('maximize-window'),
   close: () => ipcRenderer.invoke('close-window'),
+  getAppPort: () => ipcRenderer.invoke('get-app-port'),
 
   // Audio engine
   getDevices: () => ipcRenderer.invoke('get-devices'),

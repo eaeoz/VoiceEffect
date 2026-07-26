@@ -13,6 +13,7 @@
     "build:icon": "node create-icon.js"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.18",
     "ws": "^8.18.0"
   },
   "devDependencies": {
