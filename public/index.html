@@ -425,6 +425,9 @@ background-repeat:no-repeat;background-position:right 6px center}
             <option value="cold_blue">Cold Blue</option>
             <option value="matrix">Matrix Green</option>
             <option value="dreamy">Dreamy Soft Focus</option>
+            <option value="cyberpunk">Cyberpunk</option>
+            <option value="golden">Golden Hour</option>
+            <option value="horror">Horror Red</option>
           </optgroup>
           <optgroup label="Screen FX">
             <option value="pixelate">Pixelate</option>
@@ -437,6 +440,9 @@ background-repeat:no-repeat;background-position:right 6px center}
             <option value="comic_book">Comic Book</option>
             <option value="emboss">Emboss</option>
             <option value="edge_detect">Edge Detect</option>
+            <option value="zoom_blur">Zoom Blur</option>
+            <option value="kaleidoscope">Kaleidoscope</option>
+            <option value="neon_outline">Neon Outline</option>
           </optgroup>
         </select>
         <button class="obs-btn" id="obsBtn" onclick="openOBSSource()" title="Open OBS Browser Source" disabled>
@@ -1678,7 +1684,7 @@ function renderVideoFrame() {
     canvas.height = video.videoHeight;
     console.log('[Video] Canvas resized to match video:', canvas.width, 'x', canvas.height);
   }
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
   if (videoState.faceLandmarker && videoState.mediapipeReady) {
@@ -1816,6 +1822,13 @@ function applyVideoEffect(ctx, video, w, h, effect) {
     case 'comic_book': drawScreenFX(ctx, video, w, h, 'comic_book'); break;
     case 'emboss': drawScreenFX(ctx, video, w, h, 'emboss'); break;
     case 'edge_detect': drawScreenFX(ctx, video, w, h, 'edge_detect'); break;
+    case 'zoom_blur': drawScreenFX(ctx, video, w, h, 'zoom_blur'); break;
+    case 'kaleidoscope': drawScreenFX(ctx, video, w, h, 'kaleidoscope'); break;
+    case 'neon_outline': drawScreenFX(ctx, video, w, h, 'neon_outline'); break;
+    // Color Filters
+    case 'cyberpunk': drawColorFilter(ctx, video, w, h, 'cyberpunk'); break;
+    case 'golden': drawColorFilter(ctx, video, w, h, 'golden'); break;
+    case 'horror': drawColorFilter(ctx, video, w, h, 'horror'); break;
     default: ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
   }
 }
@@ -2134,15 +2147,24 @@ function drawFacePaint(ctx, video, w, h, type) {
         ctx.stroke();
       });
       break;
-    case 'butterfly_mask':
-      ctx.fillStyle = 'rgba(100,0,200,0.4)';
+    case 'butterfly_mask': {
+      const bx = eyeMid.x, by = eyeMid.y;
+      ctx.fillStyle = 'rgba(100,0,200,0.5)';
+      // Left wing
       ctx.beginPath();
-      ctx.moveTo(eyeMid.x, eyeMid.y);
-      ctx.bezierCurveTo(-eyeDist*0.3, -eyeDist*0.8, -eyeDist*1.2, -eyeDist*0.2, eyeMid.x, eyeMid.y + eyeDist*0.2);
-      ctx.bezierCurveTo(eyeDist*0.3, -eyeDist*0.8, eyeDist*1.2, -eyeDist*0.2, eyeMid.x, eyeMid.y);
+      ctx.moveTo(bx, by);
+      ctx.bezierCurveTo(bx - eyeDist*0.3, by - eyeDist*0.8, bx - eyeDist*1.3, by - eyeDist*0.2, bx, by + eyeDist*0.2);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(150,50,255,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+      // Right wing
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.bezierCurveTo(bx + eyeDist*0.3, by - eyeDist*0.8, bx + eyeDist*1.3, by - eyeDist*0.2, bx, by + eyeDist*0.2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(200,100,255,0.7)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.bezierCurveTo(bx-eyeDist*0.3, by-eyeDist*0.8, bx-eyeDist*1.3, by-eyeDist*0.2, bx, by+eyeDist*0.2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.bezierCurveTo(bx+eyeDist*0.3, by-eyeDist*0.8, bx+eyeDist*1.3, by-eyeDist*0.2, bx, by+eyeDist*0.2); ctx.stroke();
       break;
+    }
   }
   ctx.restore();
 }
@@ -2623,127 +2645,199 @@ function drawHeart(ctx, cx, cy, size) {
 }
 
 // ===== COLOR FILTERS =====
+// Helper: draw mirrored video to an offscreen canvas and return its pixel data
+function getMirroredPixelData(video, w, h) {
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const octx = off.getContext('2d', { willReadFrequently: true });
+  octx.save(); octx.scale(-1, 1); octx.drawImage(video, -w, 0, w, h); octx.restore();
+  try { return octx.getImageData(0, 0, w, h); } catch(e) { return null; }
+}
+
 function drawColorFilter(ctx, video, w, h, type) {
+  // Draw mirrored video first
   ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
-  ctx.save();
+
+  // For pixel-manipulation effects, read from offscreen to avoid taint/transform issues
+  const pd = getMirroredPixelData(video, w, h);
+  if (!pd && type !== 'dreamy') return; // can't do pixel ops without data
+
   switch(type) {
-    case 'grayscale':
-      ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0, 0, w, h);
-      const gData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < gData.data.length; i += 4) {
-        const avg = gData.data[i] * 0.299 + gData.data[i+1] * 0.587 + gData.data[i+2] * 0.114;
-        gData.data[i] = gData.data[i+1] = gData.data[i+2] = avg;
+    case 'grayscale': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const avg = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+        d[i] = d[i+1] = d[i+2] = avg;
       }
-      ctx.putImageData(gData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       break;
-    case 'sepia':
-      const sData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < sData.data.length; i += 4) {
-        const r = sData.data[i], g = sData.data[i+1], b = sData.data[i+2];
-        sData.data[i] = Math.min(255, r*0.393 + g*0.769 + b*0.189);
-        sData.data[i+1] = Math.min(255, r*0.349 + g*0.686 + b*0.168);
-        sData.data[i+2] = Math.min(255, r*0.272 + g*0.534 + b*0.131);
+    }
+    case 'sepia': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        d[i]   = Math.min(255, r*0.393 + g*0.769 + b*0.189);
+        d[i+1] = Math.min(255, r*0.349 + g*0.686 + b*0.168);
+        d[i+2] = Math.min(255, r*0.272 + g*0.534 + b*0.131);
       }
-      ctx.putImageData(sData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       break;
-    case 'vintage':
-      const vData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < vData.data.length; i += 4) {
-        vData.data[i] = Math.min(255, vData.data[i] * 1.1 + 20);
-        vData.data[i+1] = Math.min(255, vData.data[i+1] * 0.9 + 10);
-        vData.data[i+2] = Math.min(255, vData.data[i+2] * 0.8);
+    }
+    case 'vintage': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]   = Math.min(255, d[i]   * 1.1 + 20);
+        d[i+1] = Math.min(255, d[i+1] * 0.9 + 10);
+        d[i+2] = Math.min(255, d[i+2] * 0.8);
       }
-      ctx.putImageData(vData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       ctx.fillStyle = 'rgba(100,50,0,0.15)'; ctx.fillRect(0, 0, w, h);
       break;
-    case 'invert':
-      const iData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < iData.data.length; i += 4) {
-        iData.data[i] = 255 - iData.data[i];
-        iData.data[i+1] = 255 - iData.data[i+1];
-        iData.data[i+2] = 255 - iData.data[i+2];
+    }
+    case 'invert': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = 255-d[i]; d[i+1] = 255-d[i+1]; d[i+2] = 255-d[i+2];
       }
-      ctx.putImageData(iData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       break;
-    case 'night_vision':
-      const nData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < nData.data.length; i += 4) {
-        const avg = nData.data[i] * 0.299 + nData.data[i+1] * 0.587 + nData.data[i+2] * 0.114;
-        nData.data[i] = avg * 0.2; nData.data[i+1] = avg * 1.2; nData.data[i+2] = avg * 0.2;
+    }
+    case 'night_vision': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const avg = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+        d[i] = avg*0.2; d[i+1] = Math.min(255, avg*1.4); d[i+2] = avg*0.2;
       }
-      ctx.putImageData(nData, 0, 0);
-      break;
-    case 'thermal':
-      const tData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < tData.data.length; i += 4) {
-        const avg = (tData.data[i] + tData.data[i+1] + tData.data[i+2]) / 3;
-        const norm = avg / 255;
-        if (norm < 0.33) { tData.data[i] = 0; tData.data[i+1] = 0; tData.data[i+2] = norm * 3 * 255; }
-        else if (norm < 0.66) { tData.data[i] = (norm - 0.33) * 3 * 255; tData.data[i+1] = 0; tData.data[i+2] = (0.66 - norm) * 3 * 255; }
-        else { tData.data[i] = 255; tData.data[i+1] = (norm - 0.66) * 3 * 255; tData.data[i+2] = 0; }
+      ctx.putImageData(pd, 0, 0);
+      // scanline overlay
+      ctx.save();
+      for (let y = 0; y < h; y += 4) {
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(0, y, w, 2);
       }
-      ctx.putImageData(tData, 0, 0);
+      ctx.restore();
       break;
-    case 'xray':
-      const xData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < xData.data.length; i += 4) {
-        xData.data[i] = 255 - xData.data[i]; xData.data[i+1] = 255 - xData.data[i+1]; xData.data[i+2] = Math.min(255, (255 - xData.data[i+2]) * 1.5);
+    }
+    case 'thermal': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const avg = (d[i]+d[i+1]+d[i+2])/3;
+        const norm = avg/255;
+        if (norm < 0.33)      { d[i]=0;   d[i+1]=0;   d[i+2]=Math.min(255,norm*3*255); }
+        else if (norm < 0.66) { d[i]=Math.min(255,(norm-0.33)*3*255); d[i+1]=0; d[i+2]=Math.min(255,(0.66-norm)*3*255); }
+        else                  { d[i]=255; d[i+1]=Math.min(255,(norm-0.66)*3*255); d[i+2]=0; }
       }
-      ctx.putImageData(xData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       break;
-    case 'neon':
-      const eData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < eData.data.length; i += 4) {
-        eData.data[i] = Math.min(255, eData.data[i] * 1.5);
-        eData.data[i+1] = Math.min(255, eData.data[i+1] * 0.8);
-        eData.data[i+2] = Math.min(255, eData.data[i+2] * 2);
+    }
+    case 'xray': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]=255-d[i]; d[i+1]=255-d[i+1]; d[i+2]=Math.min(255,(255-d[i+2])*1.5);
       }
-      ctx.putImageData(eData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
+      ctx.fillStyle = 'rgba(100,120,255,0.08)'; ctx.fillRect(0,0,w,h);
       break;
-    case 'dramatic':
-      const dData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < dData.data.length; i += 4) {
-        dData.data[i] = Math.min(255, Math.max(0, (dData.data[i] - 128) * 1.5 + 128));
-        dData.data[i+1] = Math.min(255, Math.max(0, (dData.data[i+1] - 128) * 1.5 + 128));
-        dData.data[i+2] = Math.min(255, Math.max(0, (dData.data[i+2] - 128) * 1.5 + 128));
+    }
+    case 'neon': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]   = Math.min(255, d[i]   * 1.5);
+        d[i+1] = Math.min(255, d[i+1] * 0.8);
+        d[i+2] = Math.min(255, d[i+2] * 2.0);
       }
-      ctx.putImageData(dData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       break;
-    case 'sunset':
-      const suData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < suData.data.length; i += 4) {
-        suData.data[i] = Math.min(255, suData.data[i] * 1.3 + 30);
-        suData.data[i+1] = Math.min(255, suData.data[i+1] * 0.8 + 10);
-        suData.data[i+2] = Math.min(255, suData.data[i+2] * 0.6);
+    }
+    case 'dramatic': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]   = Math.min(255, Math.max(0, (d[i]  -128)*1.8+128));
+        d[i+1] = Math.min(255, Math.max(0, (d[i+1]-128)*1.8+128));
+        d[i+2] = Math.min(255, Math.max(0, (d[i+2]-128)*1.8+128));
       }
-      ctx.putImageData(suData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       break;
-    case 'cold_blue':
-      const cData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < cData.data.length; i += 4) {
-        cData.data[i] = Math.min(255, cData.data[i] * 0.7);
-        cData.data[i+1] = Math.min(255, cData.data[i+1] * 0.8 + 20);
-        cData.data[i+2] = Math.min(255, cData.data[i+2] * 1.4 + 30);
+    }
+    case 'sunset': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]   = Math.min(255, d[i]   * 1.3 + 30);
+        d[i+1] = Math.min(255, d[i+1] * 0.8 + 10);
+        d[i+2] = Math.min(255, d[i+2] * 0.6);
       }
-      ctx.putImageData(cData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       break;
-    case 'matrix':
-      const mData = ctx.getImageData(0, 0, w, h);
-      for (let i = 0; i < mData.data.length; i += 4) {
-        mData.data[i] = mData.data[i] * 0.2;
-        mData.data[i+1] = Math.min(255, mData.data[i+1] * 1.5 + 20);
-        mData.data[i+2] = mData.data[i+2] * 0.2;
+    }
+    case 'cold_blue': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]   = Math.min(255, d[i]   * 0.7);
+        d[i+1] = Math.min(255, d[i+1] * 0.8 + 20);
+        d[i+2] = Math.min(255, d[i+2] * 1.4 + 30);
       }
-      ctx.putImageData(mData, 0, 0);
+      ctx.putImageData(pd, 0, 0);
       break;
-    case 'dreamy':
-      ctx.globalAlpha = 0.3;
-      ctx.drawImage(ctx.canvas, 0, 0);
+    }
+    case 'matrix': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const g2 = Math.min(255, d[i+1] * 1.5 + 20);
+        d[i] = d[i]*0.1; d[i+1] = g2; d[i+2] = d[i+2]*0.1;
+      }
+      ctx.putImageData(pd, 0, 0);
+      break;
+    }
+    case 'dreamy': {
+      // Blur overlay using CSS filter on a temp canvas
+      const off2 = document.createElement('canvas');
+      off2.width = w; off2.height = h;
+      const o2 = off2.getContext('2d');
+      o2.save(); o2.scale(-1,1); o2.drawImage(video,-w,0,w,h); o2.restore();
+      ctx.save();
+      ctx.filter = 'blur(8px) brightness(1.1) saturate(1.3)';
+      ctx.globalAlpha = 0.45;
+      ctx.drawImage(off2, 0, 0);
+      ctx.filter = 'none';
       ctx.globalAlpha = 1;
-      ctx.fillStyle = 'rgba(255,200,255,0.1)'; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = 'rgba(255,180,255,0.12)'; ctx.fillRect(0,0,w,h);
+      ctx.restore();
       break;
+    }
+    case 'cyberpunk': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const r=d[i], g=d[i+1], b=d[i+2];
+        d[i]   = Math.min(255, r*0.5 + b*0.8);
+        d[i+1] = Math.min(255, g*0.4);
+        d[i+2] = Math.min(255, b*0.5 + r*0.6 + 40);
+      }
+      ctx.putImageData(pd, 0, 0);
+      ctx.fillStyle = 'rgba(255,0,100,0.08)'; ctx.fillRect(0,0,w,h);
+      break;
+    }
+    case 'golden': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]   = Math.min(255, d[i]   * 1.2 + 40);
+        d[i+1] = Math.min(255, d[i+1] * 1.0 + 20);
+        d[i+2] = Math.min(255, d[i+2] * 0.5);
+      }
+      ctx.putImageData(pd, 0, 0);
+      break;
+    }
+    case 'horror': {
+      const d = pd.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const avg = d[i]*0.3 + d[i+1]*0.59 + d[i+2]*0.11;
+        d[i]   = Math.min(255, avg*1.3);
+        d[i+1] = avg*0.4;
+        d[i+2] = avg*0.4;
+      }
+      ctx.putImageData(pd, 0, 0);
+      break;
+    }
   }
-  ctx.restore();
 }
 
 // ===== SCREEN FX =====
@@ -2783,14 +2877,19 @@ function drawScreenFX(ctx, video, w, h, type) {
       }
       break;
     }
-    case 'mirror_horizontal':
-      ctx.save(); ctx.translate(w/2, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, w/2, h, 0, 0, w/2, h); ctx.restore();
-      ctx.save(); ctx.translate(w/2, 0); ctx.scale(1, 1); ctx.drawImage(video, w/2, 0, w/2, h, w/2, 0, w/2, h); ctx.restore();
+    case 'mirror_horizontal': {
+      // Draw full mirrored frame, then copy left half to right half
+      ctx.save(); ctx.scale(-1,1); ctx.drawImage(video,-w,0,w,h); ctx.restore();
+      // Right half = flipped copy of left half
+      ctx.save(); ctx.translate(w, 0); ctx.scale(-1, 1); ctx.drawImage(ctx.canvas, 0, 0, w/2, h, 0, 0, w/2, h); ctx.restore();
       break;
-    case 'mirror_vertical':
-      ctx.save(); ctx.translate(0, h/2); ctx.scale(1, -1); ctx.drawImage(video, 0, 0, w, h/2, 0, 0, w, h/2); ctx.restore();
-      ctx.save(); ctx.translate(0, h/2); ctx.scale(1, 1); ctx.drawImage(video, 0, h/2, w, h/2, 0, h/2, w, h/2); ctx.restore();
+    }
+    case 'mirror_vertical': {
+      ctx.save(); ctx.scale(-1,1); ctx.drawImage(video,-w,0,w,h); ctx.restore();
+      // Bottom half = flipped copy of top half
+      ctx.save(); ctx.translate(0, h); ctx.scale(1, -1); ctx.drawImage(ctx.canvas, 0, 0, w, h/2, 0, 0, w, h/2); ctx.restore();
       break;
+    }
     case 'glitch': {
       const sliceCount = 8 + Math.floor(Math.random() * 5);
       for (let i = 0; i < sliceCount; i++) {
@@ -2888,6 +2987,70 @@ function drawScreenFX(ctx, video, w, h, type) {
         }
       }
       ctx.putImageData(edData, 0, 0);
+      break;
+    }
+    case 'zoom_blur': {
+      const steps = 8;
+      ctx.save(); ctx.scale(-1,1); ctx.drawImage(video,-w,0,w,h); ctx.restore();
+      const cx2 = w/2, cy2 = h/2;
+      for (let i = 1; i <= steps; i++) {
+        const scale = 1 + i * 0.015;
+        const alpha = 0.06;
+        ctx.save();
+        ctx.translate(cx2, cy2);
+        ctx.scale(scale, scale);
+        ctx.translate(-cx2, -cy2);
+        ctx.globalAlpha = alpha;
+        ctx.scale(-1,1); ctx.drawImage(video,-w,0,w,h);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case 'kaleidoscope': {
+      const off3 = document.createElement('canvas');
+      off3.width = w; off3.height = h;
+      const o3 = off3.getContext('2d');
+      o3.save(); o3.scale(-1,1); o3.drawImage(video,-w,0,w,h); o3.restore();
+      ctx.clearRect(0, 0, w, h);
+      const slices = 6;
+      for (let i = 0; i < slices; i++) {
+        const angle = (i / slices) * Math.PI * 2;
+        ctx.save();
+        ctx.translate(w/2, h/2);
+        ctx.rotate(angle);
+        if (i % 2 === 1) ctx.scale(-1, 1);
+        ctx.drawImage(off3, -w/2, -h/2, w, h);
+        ctx.restore();
+      }
+      break;
+    }
+    case 'neon_outline': {
+      const pd2 = getMirroredPixelData(video, w, h);
+      if (!pd2) { ctx.save(); ctx.scale(-1,1); ctx.drawImage(video,-w,0,w,h); ctx.restore(); break; }
+      // Dark base
+      ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+      const ed2 = pd2.data;
+      const out2 = ctx.createImageData(w, h);
+      const od2 = out2.data;
+      for (let y2 = 1; y2 < h-1; y2++) {
+        for (let x2 = 1; x2 < w-1; x2++) {
+          const i2 = (y2*w+x2)*4;
+          for (let c2 = 0; c2 < 3; c2++) {
+            const gx2 = -ed2[((y2-1)*w+(x2-1))*4+c2] + ed2[((y2-1)*w+(x2+1))*4+c2]
+              - 2*ed2[(y2*w+(x2-1))*4+c2] + 2*ed2[(y2*w+(x2+1))*4+c2]
+              - ed2[((y2+1)*w+(x2-1))*4+c2] + ed2[((y2+1)*w+(x2+1))*4+c2];
+            const gy2 = -ed2[((y2-1)*w+(x2-1))*4+c2] - 2*ed2[((y2-1)*w+x2)*4+c2] - ed2[((y2-1)*w+(x2+1))*4+c2]
+              + ed2[((y2+1)*w+(x2-1))*4+c2] + 2*ed2[((y2+1)*w+x2)*4+c2] + ed2[((y2+1)*w+(x2+1))*4+c2];
+            const mag2 = Math.min(255, Math.sqrt(gx2*gx2+gy2*gy2)*2);
+            if (c2===0) od2[i2] = mag2*0.2;
+            if (c2===1) od2[i2+1] = mag2;
+            if (c2===2) od2[i2+2] = mag2*0.8;
+          }
+          od2[i2+3] = 255;
+        }
+      }
+      ctx.putImageData(out2, 0, 0);
       break;
     }
   }
