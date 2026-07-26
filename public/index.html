@@ -444,6 +444,56 @@ background-repeat:no-repeat;background-position:right 6px center}
             <option value="kaleidoscope">Kaleidoscope</option>
             <option value="neon_outline">Neon Outline</option>
           </optgroup>
+          <optgroup label="Expression FX">
+            <option value="mouth_fire">Mouth Fire</option>
+            <option value="mouth_laser">Mouth Laser</option>
+            <option value="blink_sparkle">Blink Sparkle</option>
+            <option value="smile_hearts">Smile Hearts</option>
+            <option value="angry_eyebrows">Angry Steam</option>
+            <option value="tongue_out">Tongue Out</option>
+            <option value="surprise_face">Surprise Warp</option>
+            <option value="wink_filter">Wink Filter</option>
+          </optgroup>
+          <optgroup label="Face Style FX">
+            <option value="face_glow_pulse">Face Glow Pulse</option>
+            <option value="neon_face_outline">Neon Face Outline</option>
+            <option value="disco_face">Disco Face</option>
+            <option value="sketch_face">Sketch Face</option>
+            <option value="ice_face">Ice Face</option>
+            <option value="fire_face">Fire Face</option>
+          </optgroup>
+          <optgroup label="Advanced Deform">
+            <option value="slim_face">Slim Face</option>
+            <option value="big_head">Big Head</option>
+            <option value="smooth_skin">Smooth Skin</option>
+            <option value="fat_face">Fat Face</option>
+            <option value="sharp_jaw">Sharp Jaw</option>
+            <option value="long_nose">Long Nose</option>
+            <option value="forehead_expand">Big Forehead</option>
+            <option value="face_morph">Face Morph</option>
+          </optgroup>
+          <optgroup label="Body FX">
+            <option value="big_body">Big Body</option>
+            <option value="slim_body">Slim Body</option>
+            <option value="chibi">Chibi (Big Head)</option>
+            <option value="long_arms">Long Arms</option>
+            <option value="floating_head">Floating Head</option>
+            <option value="body_glow">Body Glow</option>
+          </optgroup>
+          <optgroup label="Hand FX">
+            <option value="peace_sparkle">Peace Sparkle</option>
+            <option value="fire_hand">Fire Hand</option>
+            <option value="magic_wand">Magic Wand</option>
+            <option value="stop_sign">Stop Sign</option>
+            <option value="heart_hands">Heart Hands</option>
+          </optgroup>
+          <optgroup label="Face Replace">
+            <option value="zombie_face">Zombie Face</option>
+            <option value="alien_face">Alien Face</option>
+            <option value="robot_face">Robot Face</option>
+            <option value="clown_face_full">Clown Face</option>
+            <option value="gold_face">Gold Face</option>
+          </optgroup>
         </select>
         <button class="obs-btn" id="obsBtn" onclick="openOBSSource()" title="Open OBS Browser Source" disabled>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1521,7 +1571,7 @@ function setupEventListeners(){
 }
 
 // ===== VIDEO EFFECTS ENGINE =====
-let videoState = { running: false, stream: null, effect: 'none', animFrame: null, faceLandmarker: null, mediapipeReady: false, dragging: false, expanded: false, deviceLabel: null, faceDetected: false, mediapipeInitError: null };
+let videoState = { running: false, stream: null, effect: 'none', animFrame: null, faceLandmarker: null, mediapipeReady: false, dragging: false, expanded: false, deviceLabel: null, faceDetected: false, mediapipeInitError: null, faceBlendshapes: null };
 let faceLandmarks = null;
 let obsStreamActive = false;
 
@@ -1563,14 +1613,14 @@ async function initMediaPipe() {
     try {
       videoState.faceLandmarker = await Vision.FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task', delegate: 'GPU' },
-        outputFaceBlendshapes: false, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
+        outputFaceBlendshapes: true, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
       });
       console.log(logTag, 'FaceLandmarker loaded with GPU delegate');
     } catch(gpuErr) {
       console.warn(logTag, 'GPU delegate failed, trying CPU:', gpuErr.message);
       videoState.faceLandmarker = await Vision.FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task', delegate: 'CPU' },
-        outputFaceBlendshapes: false, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
+        outputFaceBlendshapes: true, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
       });
       console.log(logTag, 'FaceLandmarker loaded with CPU delegate');
     }
@@ -1771,7 +1821,13 @@ function requiresFace(effect) {
     'big_eyes','tiny_eyes','big_mouth','tiny_mouth','big_nose','tiny_nose','long_face','wide_face','pinch_face','bulge_face','alien_head','fish_eye',
     'laser_eyes','glow_eyes','fire_eyes','rainbow_eyes','x_eyes',
     'clown_nose','rudolph_nose','pig_nose',
-    'fire_head','electric_head','aura'].includes(effect);
+    'fire_head','electric_head','aura',
+    'mouth_fire','mouth_laser','blink_sparkle','smile_hearts','angry_eyebrows','tongue_out','surprise_face','wink_filter',
+    'face_glow_pulse','neon_face_outline','disco_face','sketch_face','ice_face','fire_face',
+    'slim_face','big_head','smooth_skin','fat_face','sharp_jaw','long_nose','forehead_expand','face_morph',
+    'big_body','slim_body','chibi','long_arms','floating_head','body_glow',
+    'peace_sparkle','fire_hand','magic_wand','stop_sign','heart_hands',
+    'zombie_face','alien_face','robot_face','clown_face_full','gold_face'].includes(effect);
 }
 let videoRenderTime = 0;
 let lastObsFrameTime = 0;
@@ -1796,6 +1852,7 @@ function renderVideoFrame() {
       const now = performance.now();
       const results = videoState.faceLandmarker.detectForVideo(video, now);
       faceLandmarks = (results && results.faceLandmarks && results.faceLandmarks.length > 0) ? results.faceLandmarks[0] : null;
+      videoState.faceBlendshapes = (results && results.faceBlendshapes && results.faceBlendshapes.length > 0) ? results.faceBlendshapes[0] : null;
     } catch(e) { faceLandmarks = null; }
   } else { faceLandmarks = null; }
   const effect = videoState.effect;
@@ -1969,6 +2026,50 @@ function applyVideoEffect(ctx, video, w, h, effect) {
     case 'cyberpunk': drawColorFilter(ctx, video, w, h, 'cyberpunk'); break;
     case 'golden': drawColorFilter(ctx, video, w, h, 'golden'); break;
     case 'horror': drawColorFilter(ctx, video, w, h, 'horror'); break;
+    // Expression FX
+    case 'mouth_fire': drawExpressionFX(ctx, video, w, h, 'mouth_fire'); break;
+    case 'mouth_laser': drawExpressionFX(ctx, video, w, h, 'mouth_laser'); break;
+    case 'blink_sparkle': drawExpressionFX(ctx, video, w, h, 'blink_sparkle'); break;
+    case 'smile_hearts': drawExpressionFX(ctx, video, w, h, 'smile_hearts'); break;
+    case 'angry_eyebrows': drawExpressionFX(ctx, video, w, h, 'angry_eyebrows'); break;
+    case 'tongue_out': drawExpressionFX(ctx, video, w, h, 'tongue_out'); break;
+    case 'surprise_face': drawExpressionFX(ctx, video, w, h, 'surprise_face'); break;
+    case 'wink_filter': drawExpressionFX(ctx, video, w, h, 'wink_filter'); break;
+    // Face Style FX
+    case 'face_glow_pulse': drawFaceStyleFX(ctx, video, w, h, 'face_glow_pulse'); break;
+    case 'neon_face_outline': drawFaceStyleFX(ctx, video, w, h, 'neon_face_outline'); break;
+    case 'disco_face': drawFaceStyleFX(ctx, video, w, h, 'disco_face'); break;
+    case 'sketch_face': drawFaceStyleFX(ctx, video, w, h, 'sketch_face'); break;
+    case 'ice_face': drawFaceStyleFX(ctx, video, w, h, 'ice_face'); break;
+    case 'fire_face': drawFaceStyleFX(ctx, video, w, h, 'fire_face'); break;
+    // Advanced Deform
+    case 'slim_face': drawAdvancedDeform(ctx, video, w, h, 'slim_face'); break;
+    case 'big_head': drawAdvancedDeform(ctx, video, w, h, 'big_head'); break;
+    case 'smooth_skin': drawAdvancedDeform(ctx, video, w, h, 'smooth_skin'); break;
+    case 'fat_face': drawAdvancedDeform(ctx, video, w, h, 'fat_face'); break;
+    case 'sharp_jaw': drawAdvancedDeform(ctx, video, w, h, 'sharp_jaw'); break;
+    case 'long_nose': drawAdvancedDeform(ctx, video, w, h, 'long_nose'); break;
+    case 'forehead_expand': drawAdvancedDeform(ctx, video, w, h, 'forehead_expand'); break;
+    case 'face_morph': drawAdvancedDeform(ctx, video, w, h, 'face_morph'); break;
+    // Body FX
+    case 'big_body': drawBodyFX(ctx, video, w, h, 'big_body'); break;
+    case 'slim_body': drawBodyFX(ctx, video, w, h, 'slim_body'); break;
+    case 'chibi': drawBodyFX(ctx, video, w, h, 'chibi'); break;
+    case 'long_arms': drawBodyFX(ctx, video, w, h, 'long_arms'); break;
+    case 'floating_head': drawBodyFX(ctx, video, w, h, 'floating_head'); break;
+    case 'body_glow': drawBodyFX(ctx, video, w, h, 'body_glow'); break;
+    // Hand FX
+    case 'peace_sparkle': drawHandFX(ctx, video, w, h, 'peace_sparkle'); break;
+    case 'fire_hand': drawHandFX(ctx, video, w, h, 'fire_hand'); break;
+    case 'magic_wand': drawHandFX(ctx, video, w, h, 'magic_wand'); break;
+    case 'stop_sign': drawHandFX(ctx, video, w, h, 'stop_sign'); break;
+    case 'heart_hands': drawHandFX(ctx, video, w, h, 'heart_hands'); break;
+    // Face Replace
+    case 'zombie_face': drawFaceReplace(ctx, video, w, h, 'zombie_face'); break;
+    case 'alien_face': drawFaceReplace(ctx, video, w, h, 'alien_face'); break;
+    case 'robot_face': drawFaceReplace(ctx, video, w, h, 'robot_face'); break;
+    case 'clown_face_full': drawFaceReplace(ctx, video, w, h, 'clown_face_full'); break;
+    case 'gold_face': drawFaceReplace(ctx, video, w, h, 'gold_face'); break;
     default: ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
   }
 }
@@ -3199,6 +3300,821 @@ function drawScreenFX(ctx, video, w, h, type) {
     }
   }
   ctx.restore();
+}
+
+// ===== BLENDSHAPE HELPER =====
+let lastBlendshapeLog = 0;
+function getBlendshape(name) {
+  if (!videoState.faceBlendshapes) return 0;
+  const cats = videoState.faceBlendshapes.categories;
+  if (!cats) return 0;
+  const match = cats.find(c => c.categoryName === name);
+  return match ? match.score : 0;
+}
+function logBlendshapes() {
+  if (!videoState.faceBlendshapes || !videoState.faceBlendshapes.categories) return;
+  const now = Date.now();
+  if (now - lastBlendshapeLog < 3000) return;
+  lastBlendshapeLog = now;
+  const cats = videoState.faceBlendshapes.categories;
+  const top = cats.filter(c => c.score > 0.1).sort((a,b) => b.score - a.score).slice(0, 8);
+  console.log('[Blendshapes] count:', cats.length, 'top:', top.map(c => c.categoryName + ':' + c.score.toFixed(2)).join(', '));
+}
+
+// ===== EXPRESSION FX =====
+const exprParticles = {};
+function getExprParticles(type) {
+  if (!exprParticles[type]) exprParticles[type] = [];
+  return exprParticles[type];
+}
+function drawExprMouth(ctx, mouthMid, eyeDist, color, alpha) {
+  ctx.fillStyle = color.replace('A)', alpha + ')');
+  ctx.beginPath();
+  ctx.ellipse(mouthMid.x, mouthMid.y, eyeDist * 0.35, eyeDist * 0.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+function drawExpressionFX(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  logBlendshapes();
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const nose = toScreen(faceLandmarks[1], w, h);
+  const mouthL = toScreen(faceLandmarks[61], w, h);
+  const mouthR = toScreen(faceLandmarks[291], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const mouthMid = { x: (mouthL.x + mouthR.x) / 2, y: (mouthL.y + mouthR.y) / 2 };
+  const eyeDist = Math.sqrt((eyeR.x - eyeL.x) ** 2 + (eyeR.y - eyeL.y) ** 2);
+  const t = Date.now() / 1000;
+  const jawOpen = getBlendshape('jawOpen');
+  const blinkL = getBlendshape('eyeBlinkLeft');
+  const blinkR = getBlendshape('eyeBlinkRight');
+  const smileL = getBlendshape('mouthSmileLeft');
+  const smileR = getBlendshape('mouthSmileRight');
+  const browDownL = getBlendshape('browDownLeft');
+  const browDownR = getBlendshape('browDownRight');
+  const tongueOut = getBlendshape('tongueOut');
+  switch(type) {
+    case 'mouth_fire': {
+      const pts = getExprParticles('mouth_fire');
+      if (jawOpen > 0.15) {
+        const count = Math.max(1, Math.floor(jawOpen * 12));
+        for (let i = 0; i < count; i++) {
+          pts.push({ x: mouthMid.x + (Math.random()-0.5)*eyeDist*0.5, y: mouthMid.y, vy: -(3+Math.random()*5), life: 1, size: 5+Math.random()*12, hue: Math.random()*40 });
+        }
+      }
+      const mouthGlow = Math.min(jawOpen * 2, 1);
+      if (mouthGlow > 0.05) {
+        const g = ctx.createRadialGradient(mouthMid.x, mouthMid.y, 0, mouthMid.x, mouthMid.y, eyeDist * 0.5);
+        g.addColorStop(0, 'rgba(255,100,0,' + (mouthGlow * 0.5) + ')');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(mouthMid.x, mouthMid.y, eyeDist * 0.5, 0, Math.PI*2); ctx.fill();
+      }
+      for (let i = pts.length - 1; i >= 0; i--) {
+        const p = pts[i]; p.y += p.vy; p.x += Math.sin(t*8+i)*1.5; p.life -= 0.02; p.size *= 0.97;
+        if (p.life <= 0) { pts.splice(i, 1); continue; }
+        ctx.fillStyle = 'hsla(' + (p.hue + (1-p.life)*40) + ',100%,' + (40+p.life*30) + '%,' + p.life + ')';
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+      }
+      if (pts.length > 250) pts.splice(0, pts.length - 250);
+      break;
+    }
+    case 'mouth_laser': {
+      if (jawOpen > 0.2) {
+        const intensity = Math.min(jawOpen * 2, 1);
+        ctx.shadowColor = 'rgba(255,0,0,' + intensity + ')'; ctx.shadowBlur = 20;
+        ctx.strokeStyle = 'rgba(255,0,0,' + intensity + ')'; ctx.lineWidth = 3 + intensity * 4;
+        ctx.beginPath(); ctx.moveTo(eyeL.x, eyeL.y); ctx.lineTo(eyeL.x - w * 0.7, eyeL.y + (Math.random()-0.5)*30*intensity); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(eyeR.x, eyeR.y); ctx.lineTo(eyeR.x + w * 0.7, eyeR.y + (Math.random()-0.5)*30*intensity); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,150,0,' + (intensity*0.4) + ')'; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.moveTo(eyeL.x, eyeL.y); ctx.lineTo(eyeL.x - w * 0.6, eyeL.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(eyeR.x, eyeR.y); ctx.lineTo(eyeR.x + w * 0.6, eyeR.y); ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+    case 'blink_sparkle': {
+      const pts = getExprParticles('blink_sparkle');
+      if (blinkL > 0.4 || blinkR > 0.4) {
+        [eyeL, eyeR].forEach(eye => {
+          for (let i = 0; i < 15; i++) {
+            const a = Math.random() * Math.PI * 2;
+            pts.push({ x: eye.x, y: eye.y, vx: Math.cos(a)*(2+Math.random()*4), vy: Math.sin(a)*(2+Math.random()*4), life: 1, size: 2+Math.random()*6, hue: 50+Math.random()*120 });
+          }
+        });
+      }
+      const avgBlink = (blinkL + blinkR) / 2;
+      if (avgBlink > 0.15) {
+        [eyeL, eyeR].forEach(eye => {
+          const g = ctx.createRadialGradient(eye.x, eye.y, 0, eye.x, eye.y, eyeDist * 0.4);
+          g.addColorStop(0, 'rgba(255,255,150,' + (avgBlink * 0.5) + ')');
+          g.addColorStop(1, 'transparent');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(eye.x, eye.y, eyeDist * 0.4, 0, Math.PI*2); ctx.fill();
+        });
+      }
+      for (let i = pts.length - 1; i >= 0; i--) {
+        const p = pts[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.025; p.size *= 0.96;
+        if (p.life <= 0) { pts.splice(i, 1); continue; }
+        ctx.fillStyle = 'hsla(' + p.hue + ',100%,75%,' + p.life + ')';
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+      }
+      if (pts.length > 250) pts.splice(0, pts.length - 250);
+      break;
+    }
+    case 'smile_hearts': {
+      const smile = (smileL + smileR) / 2;
+      const pts = getExprParticles('smile_hearts');
+      if (smile > 0.3) {
+        pts.push({ x: mouthMid.x + (Math.random()-0.5)*eyeDist, y: mouthMid.y, vy: -(1.5+Math.random()*2), vx: (Math.random()-0.5)*1.5, life: 1, size: 6+Math.random()*10, rotation: Math.random()*Math.PI*2 });
+      }
+      if (smile > 0.1) {
+        ctx.fillStyle = 'rgba(255,100,150,' + (smile * 0.3) + ')';
+        ctx.beginPath(); ctx.arc(mouthMid.x, mouthMid.y, eyeDist * 0.3, 0, Math.PI*2); ctx.fill();
+      }
+      for (let i = pts.length - 1; i >= 0; i--) {
+        const p = pts[i]; p.y += p.vy; p.x += p.vx; p.life -= 0.012; p.rotation += 0.02;
+        if (p.life <= 0) { pts.splice(i, 1); continue; }
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rotation); ctx.scale(p.size/10, p.size/10);
+        ctx.fillStyle = 'hsla(340,80%,60%,' + p.life + ')';
+        ctx.beginPath(); ctx.moveTo(0, 3); ctx.bezierCurveTo(-5, -2, -9, 2, 0, 10); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0, 3); ctx.bezierCurveTo(5, -2, 9, 2, 0, 10); ctx.fill();
+        ctx.restore();
+      }
+      if (pts.length > 100) pts.splice(0, pts.length - 100);
+      break;
+    }
+    case 'angry_eyebrows': {
+      const angry = (browDownL + browDownR) / 2;
+      const pts = getExprParticles('angry_eyebrows');
+      if (angry > 0.2) {
+        for (let i = 0; i < Math.floor(angry * 6); i++) {
+          pts.push({ x: forehead.x + (Math.random()-0.5)*eyeDist, y: forehead.y, vy: -(1.5+Math.random()*2.5), life: 1, size: 4+Math.random()*7 });
+        }
+      }
+      if (angry > 0.1) {
+        const g = ctx.createRadialGradient(forehead.x, forehead.y, 0, forehead.x, forehead.y, eyeDist * 0.6);
+        g.addColorStop(0, 'rgba(255,50,0,' + (angry * 0.3) + ')');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(forehead.x, forehead.y, eyeDist * 0.6, 0, Math.PI*2); ctx.fill();
+      }
+      for (let i = pts.length - 1; i >= 0; i--) {
+        const p = pts[i]; p.y += p.vy; p.life -= 0.018;
+        if (p.life <= 0) { pts.splice(i, 1); continue; }
+        ctx.fillStyle = 'rgba(255,80,0,' + p.life + ')';
+        ctx.beginPath(); ctx.arc(p.x + Math.sin(t*5+i)*5, p.y, p.size, 0, Math.PI*2); ctx.fill();
+      }
+      if (pts.length > 180) pts.splice(0, pts.length - 180);
+      break;
+    }
+    case 'tongue_out': {
+      const tongue = Math.max(tongueOut, jawOpen * 0.7);
+      if (tongue > 0.15) {
+        const tongueLen = eyeDist * 0.6 * tongue;
+        const tongueW = eyeDist * 0.3;
+        ctx.fillStyle = '#e55';
+        ctx.beginPath();
+        ctx.ellipse(mouthMid.x, mouthMid.y + tongueLen * 0.4, tongueW, tongueLen, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#d44';
+        ctx.beginPath();
+        ctx.ellipse(mouthMid.x, mouthMid.y + tongueLen * 0.25, tongueW * 0.5, tongueLen * 0.35, 0, 0, Math.PI);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'surprise_face': {
+      const surprise = Math.min(jawOpen * 3, 1);
+      if (surprise > 0.05) {
+        const cx = (eyeL.x + eyeR.x) / 2, cy = (eyeL.y + eyeR.y) / 2;
+        const pulse = Math.sin(t * 6) * 0.3 + 0.7;
+        ctx.save();
+        ctx.globalAlpha = surprise * 0.6;
+        for (let i = 3; i >= 0; i--) {
+          const radius = eyeDist * (1.2 + i * 0.4) * pulse;
+          ctx.strokeStyle = 'hsla(' + (i * 40) + ',100%,60%,' + (0.6 - i * 0.12) + ')';
+          ctx.lineWidth = 3 - i * 0.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        const eyeSize = eyeDist * 0.4 * (1 + surprise * 0.6);
+        [eyeL, eyeR].forEach(eye => {
+          ctx.save();
+          ctx.beginPath(); ctx.arc(eye.x, eye.y, eyeSize, 0, Math.PI * 2); ctx.clip();
+          ctx.filter = 'brightness(1.4) saturate(1.5)';
+          ctx.drawImage(video, -w, 0, w, h);
+          ctx.filter = 'none';
+          ctx.restore();
+        });
+        const mouthOpen = eyeDist * 0.3 * surprise;
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        ctx.beginPath(); ctx.ellipse(mouthMid.x, mouthMid.y + mouthOpen * 0.3, mouthOpen, mouthOpen * 1.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#c33';
+        ctx.beginPath(); ctx.ellipse(mouthMid.x, mouthMid.y + mouthOpen * 0.8, mouthOpen * 0.5, mouthOpen * 0.3, 0, 0, Math.PI); ctx.fill();
+        ctx.font = 'bold ' + Math.round(eyeDist * 0.3) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,100,' + (surprise * 0.8) + ')';
+        ctx.fillText('!', mouthMid.x, forehead.y - eyeDist * 0.3);
+        ctx.textAlign = 'left';
+      }
+      break;
+    }
+    case 'wink_filter': {
+      const winkL = blinkL > 0.3 && blinkR < 0.3;
+      const winkR = blinkR > 0.3 && blinkL < 0.3;
+      if (winkL || winkR) {
+        const winkEye = winkL ? eyeL : eyeR;
+        const otherEye = winkL ? eyeR : eyeL;
+        const winkIntensity = Math.min((winkL ? blinkL : blinkR), 1);
+        const s = eyeDist * 0.025;
+        ctx.save();
+        ctx.translate(winkEye.x, winkEye.y - eyeDist * 0.4);
+        ctx.fillStyle = '#FFD700';
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 10 * winkIntensity;
+        ctx.beginPath();
+        ctx.moveTo(0, -14 * s); ctx.lineTo(-4 * s, -4 * s); ctx.lineTo(-10 * s, -2 * s);
+        ctx.lineTo(-5 * s, 2 * s); ctx.lineTo(-7 * s, 10 * s); ctx.lineTo(0, 6 * s);
+        ctx.lineTo(7 * s, 10 * s); ctx.lineTo(5 * s, 2 * s); ctx.lineTo(10 * s, -2 * s);
+        ctx.lineTo(4 * s, -4 * s); ctx.closePath(); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+        ctx.save();
+        ctx.translate(otherEye.x, otherEye.y - eyeDist * 0.6);
+        ctx.font = 'bold ' + Math.round(eyeDist * 0.25) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,180,220,' + winkIntensity + ')';
+        ctx.fillText('\u2764', 0, 0);
+        ctx.textAlign = 'left';
+        ctx.restore();
+        const trailCount = 5;
+        for (let i = 0; i < trailCount; i++) {
+          const frac = i / trailCount;
+          const px = otherEye.x + (winkEye.x - otherEye.x) * frac;
+          const py = otherEye.y + (winkEye.y - otherEye.y) * frac - eyeDist * 0.3 * Math.sin(frac * Math.PI);
+          ctx.fillStyle = 'rgba(255,200,50,' + ((1 - frac) * 0.6 * winkIntensity) + ')';
+          ctx.beginPath(); ctx.arc(px, py, s * 2 * (1 - frac), 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      break;
+    }
+  }
+}
+
+// ===== FACE STYLE FX =====
+function drawFaceStyleFX(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const nose = toScreen(faceLandmarks[1], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const eyeDist = Math.sqrt((eyeR.x-eyeL.x)**2+(eyeR.y-eyeL.y)**2);
+  const eyeMid = { x:(eyeL.x+eyeR.x)/2, y:(eyeL.y+eyeR.y)/2 };
+  const faceH = Math.sqrt((chin.y-forehead.y)**2+(chin.x-forehead.x)**2);
+  const cx = (forehead.x+chin.x)/2, cy = (forehead.y+chin.y)/2;
+  const r = Math.max(faceH*0.55, eyeDist*2);
+  const t = Date.now()/1000;
+  switch(type) {
+    case 'face_glow_pulse': {
+      const pulse = (Math.sin(t*3)+1)/2;
+      const g = ctx.createRadialGradient(cx, cy, r*0.2, cx, cy, r);
+      g.addColorStop(0, 'rgba(255,200,50,' + (0.1+pulse*0.25) + ')');
+      g.addColorStop(0.5, 'rgba(255,100,200,' + (0.05+pulse*0.15) + ')');
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'neon_face_outline': {
+      const hue = (t*60) % 360;
+      ctx.save();
+      ctx.beginPath();
+      const contour = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109,10];
+      contour.forEach((idx, i) => {
+        if (idx >= faceLandmarks.length) return;
+        const p = toScreen(faceLandmarks[idx], w, h);
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.strokeStyle = 'hsla(' + hue + ',100%,60%,0.8)';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = 'hsla(' + hue + ',100%,60%,0.9)';
+      ctx.shadowBlur = 15;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+      break;
+    }
+    case 'disco_face': {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
+      ctx.globalAlpha = 0.35;
+      const hue = (t*200) % 360;
+      ctx.fillStyle = 'hsla(' + hue + ',100%,50%,0.4)';
+      ctx.fillRect(0, 0, w, h);
+      const hue2 = ((t*200)+120) % 360;
+      ctx.beginPath(); ctx.arc(cx - eyeDist*0.5, cy, r*0.4, 0, Math.PI*2);
+      ctx.fillStyle = 'hsla(' + hue2 + ',100%,50%,0.3)';
+      ctx.fill();
+      const hue3 = ((t*200)+240) % 360;
+      ctx.beginPath(); ctx.arc(cx + eyeDist*0.5, cy, r*0.4, 0, Math.PI*2);
+      ctx.fillStyle = 'hsla(' + hue3 + ',100%,50%,0.3)';
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      break;
+    }
+    case 'sketch_face': {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
+      ctx.filter = 'grayscale(1) contrast(3) brightness(1.2)';
+      ctx.drawImage(video, -w, 0, w, h);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      break;
+    }
+    case 'ice_face': {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
+      ctx.filter = 'hue-rotate(180deg) saturate(1.5) brightness(1.1)';
+      ctx.drawImage(video, -w, 0, w, h);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = '#aaf';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      for (let i = 0; i < 15; i++) {
+        const fx = cx + (Math.random()-0.5)*r*1.5;
+        const fy = cy + (Math.random()-0.5)*r*1.5;
+        const fs = 3+Math.random()*8;
+        ctx.fillStyle = 'rgba(200,220,255,' + (0.3+Math.random()*0.4) + ')';
+        ctx.beginPath();
+        ctx.moveTo(fx, fy-fs); ctx.lineTo(fx+fs*0.3, fy-fs*0.3); ctx.lineTo(fx+fs, fy);
+        ctx.lineTo(fx+fs*0.3, fy+fs*0.3); ctx.lineTo(fx, fy+fs);
+        ctx.lineTo(fx-fs*0.3, fy+fs*0.3); ctx.lineTo(fx-fs, fy);
+        ctx.lineTo(fx-fs*0.3, fy-fs*0.3); ctx.closePath(); ctx.fill();
+      }
+      break;
+    }
+    case 'fire_face': {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
+      ctx.filter = 'hue-rotate(-30deg) saturate(2) brightness(1.1)';
+      ctx.drawImage(video, -w, 0, w, h);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = '#f80';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      for (let i = 0; i < 20; i++) {
+        const fx = cx + (Math.random()-0.5)*r;
+        const fy = cy - r*0.3 - Math.random()*r*0.7;
+        const fs = 4+Math.random()*10;
+        const hue = Math.random()*40;
+        ctx.fillStyle = 'hsla(' + hue + ',100%,' + (40+Math.random()*30) + '%,' + (0.3+Math.random()*0.4) + ')';
+        ctx.beginPath(); ctx.arc(fx + Math.sin(t*5+i)*8, fy - Math.random()*20, fs, 0, Math.PI*2); ctx.fill();
+      }
+      break;
+    }
+  }
+}
+
+// ===== ADVANCED DEFORM =====
+function drawAdvancedDeform(ctx, video, w, h, type) {
+  if (!faceLandmarks) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore(); return; }
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const nose = toScreen(faceLandmarks[1], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const mouthL = toScreen(faceLandmarks[61], w, h);
+  const mouthR = toScreen(faceLandmarks[291], w, h);
+  const eyeDist = Math.sqrt((eyeR.x-eyeL.x)**2 + (eyeR.y-eyeL.y)**2);
+  const eyeMid = { x:(eyeL.x+eyeR.x)/2, y:(eyeL.y+eyeR.y)/2 };
+  const faceH = Math.sqrt((chin.y-forehead.y)**2+(chin.x-forehead.x)**2);
+  const mouthMid = { x:(mouthL.x+mouthR.x)/2, y:(mouthL.y+mouthR.y)/2 };
+  const t = Date.now()/1000;
+  const cx = (forehead.x+chin.x)/2, cy = (forehead.y+chin.y)/2;
+  const r = Math.max(faceH*0.6, eyeDist*2);
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = w; offCanvas.height = h;
+  const offCtx = offCanvas.getContext('2d');
+  offCtx.save(); offCtx.scale(-1, 1); offCtx.drawImage(video, -w, 0, w, h); offCtx.restore();
+  switch(type) {
+    case 'slim_face': {
+      const jawL = toScreen(faceLandmarks[234], w, h);
+      const jawR = toScreen(faceLandmarks[454], w, h);
+      [jawL, jawR].forEach((jaw, idx) => {
+        const dx = idx === 0 ? eyeDist*0.15 : -eyeDist*0.15;
+        const offData = offCtx.getImageData(Math.max(0,jaw.x-eyeDist*0.4), Math.max(0,jaw.y-faceH*0.3), eyeDist*0.8, faceH*0.6);
+        ctx.putImageData(offData, jaw.x-eyeDist*0.4, jaw.y-faceH*0.3);
+      });
+      break;
+    }
+    case 'big_head': {
+      const scale = 1.25;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
+      ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
+      offCtx.save(); offCtx.translate(cx, cy); offCtx.scale(scale, scale); offCtx.translate(-cx, -cy);
+      ctx.drawImage(offCanvas, 0, 0);
+      ctx.restore();
+      ctx.save(); ctx.scale(-1, 1);
+      const clipR = r * 1.1;
+      break;
+    }
+    case 'smooth_skin': {
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r*0.7, 0, Math.PI*2); ctx.clip();
+      ctx.filter = 'blur(6px)';
+      ctx.drawImage(offCanvas, 0, 0);
+      ctx.filter = 'none';
+      ctx.restore();
+      break;
+    }
+    case 'fat_face': {
+      const scale = 1.3;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r*0.9, 0, Math.PI*2); ctx.clip();
+      ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
+      ctx.drawImage(offCanvas, 0, 0);
+      ctx.restore();
+      break;
+    }
+    case 'sharp_jaw': {
+      ctx.save();
+      const jawLine = [faceLandmarks[234], faceLandmarks[127], faceLandmarks[162], faceLandmarks[21], faceLandmarks[54], faceLandmarks[103], faceLandmarks[67], faceLandmarks[109], faceLandmarks[10]];
+      ctx.beginPath();
+      jawLine.forEach((lm, i) => { const p = toScreen(lm, w, h); if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+      const jawR2 = [faceLandmarks[454], faceLandmarks[356], faceLandmarks[389], faceLandmarks[251], faceLandmarks[284], faceLandmarks[332], faceLandmarks[297], faceLandmarks[338], faceLandmarks[10]];
+      jawR2.reverse().forEach(lm => { const p = toScreen(lm, w, h); ctx.lineTo(p.x, p.y); });
+      ctx.closePath(); ctx.clip();
+      const squeeze = 0.85;
+      ctx.translate(cx, cy); ctx.scale(squeeze, 1); ctx.translate(-cx, -cy);
+      ctx.drawImage(offCanvas, 0, 0);
+      ctx.restore();
+      break;
+    }
+    case 'long_nose': {
+      const noseLen = eyeDist * 0.3;
+      ctx.save();
+      ctx.drawImage(offCanvas, 0, 0);
+      ctx.filter = 'blur(2px)';
+      ctx.drawImage(offCanvas, 0, -noseLen, w, h+noseLen, 0, 0, w, h);
+      ctx.filter = 'none';
+      ctx.restore();
+      break;
+    }
+    case 'forehead_expand': {
+      const expand = faceH * 0.15;
+      ctx.save();
+      ctx.drawImage(offCanvas, 0, 0);
+      const fData = offCtx.getImageData(0, Math.max(0,forehead.y-faceH*0.3), w, faceH*0.3);
+      ctx.putImageData(fData, 0, forehead.y-faceH*0.3-expand);
+      ctx.restore();
+      break;
+    }
+    case 'face_morph': {
+      const breath = Math.sin(t * 2) * eyeDist * 0.05;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy + breath, r*0.8, 0, Math.PI*2); ctx.clip();
+      ctx.translate(0, breath*0.5);
+      ctx.drawImage(offCanvas, 0, 0);
+      ctx.restore();
+      break;
+    }
+  }
+}
+
+// ===== BODY FX (using face landmarks to estimate body) =====
+function drawBodyFX(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const eyeDist = Math.sqrt((eyeR.x-eyeL.x)**2+(eyeR.y-eyeL.y)**2);
+  const eyeMid = { x:(eyeL.x+eyeR.x)/2, y:(eyeL.y+eyeR.y)/2 };
+  const faceH = Math.sqrt((chin.y-forehead.y)**2+(chin.x-forehead.x)**2);
+  const t = Date.now()/1000;
+  const shoulderY = chin.y + faceH * 0.3;
+  const bodyCenterX = eyeMid.x;
+  switch(type) {
+    case 'big_body': {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, shoulderY - faceH*0.2, w, h - shoulderY + faceH*0.2); ctx.clip();
+      ctx.translate(bodyCenterX, shoulderY); ctx.scale(1.2, 1.1); ctx.translate(-bodyCenterX, -shoulderY);
+      const offC = document.createElement('canvas'); offC.width = w; offC.height = h;
+      const offX = offC.getContext('2d'); offX.save(); offX.scale(-1, 1); offX.drawImage(video, -w, 0, w, h); offX.restore();
+      ctx.drawImage(offC, 0, 0);
+      ctx.restore();
+      break;
+    }
+    case 'slim_body': {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, shoulderY - faceH*0.2, w, h - shoulderY + faceH*0.2); ctx.clip();
+      ctx.translate(bodyCenterX, shoulderY); ctx.scale(0.8, 1); ctx.translate(-bodyCenterX, -shoulderY);
+      const offC2 = document.createElement('canvas'); offC2.width = w; offC2.height = h;
+      const offX2 = offC2.getContext('2d'); offX2.save(); offX2.scale(-1, 1); offX2.drawImage(video, -w, 0, w, h); offX2.restore();
+      ctx.drawImage(offC2, 0, 0);
+      ctx.restore();
+      break;
+    }
+    case 'chibi': {
+      const headR = eyeDist * 1.8;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(eyeMid.x, eyeMid.y, headR, 0, Math.PI*2); ctx.clip();
+      ctx.translate(eyeMid.x, eyeMid.y); ctx.scale(1.3, 1.3); ctx.translate(-eyeMid.x, -eyeMid.y);
+      ctx.drawImage(video, -w, 0, w, h);
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = 0.3;
+      ctx.beginPath(); ctx.rect(0, shoulderY, w, h - shoulderY); ctx.clip();
+      ctx.translate(bodyCenterX, shoulderY); ctx.scale(0.5, 0.5); ctx.translate(-bodyCenterX, -shoulderY);
+      ctx.drawImage(video, -w, 0, w, h);
+      ctx.restore();
+      break;
+    }
+    case 'long_arms': {
+      const armExtend = eyeDist * 0.6;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, shoulderY - faceH*0.1, w, h); ctx.clip();
+      ctx.translate(-armExtend, 0);
+      const offC3 = document.createElement('canvas'); offC3.width = w; offC3.height = h;
+      const offX3 = offC3.getContext('2d'); offX3.save(); offX3.scale(-1, 1); offX3.drawImage(video, -w, 0, w, h); offX3.restore();
+      ctx.drawImage(offC3, 0, 0);
+      ctx.restore();
+      break;
+    }
+    case 'floating_head': {
+      const headR2 = eyeDist * 1.5;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(eyeMid.x, eyeMid.y, headR2, 0, Math.PI*2); ctx.clip();
+      ctx.drawImage(video, -w, 0, w, h);
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = 0.25;
+      ctx.filter = 'blur(8px)';
+      ctx.beginPath(); ctx.rect(0, shoulderY - faceH*0.1, w, h); ctx.clip();
+      ctx.drawImage(video, -w, 0, w, h);
+      ctx.restore();
+      break;
+    }
+    case 'body_glow': {
+      const g = ctx.createRadialGradient(bodyCenterX, (shoulderY+chin.y)/2, eyeDist, bodyCenterX, (shoulderY+chin.y)/2, faceH*1.5);
+      const hue = (t*40) % 360;
+      g.addColorStop(0, 'hsla(' + hue + ',80%,60%,0.25)');
+      g.addColorStop(0.5, 'hsla(' + ((hue+90)%360) + ',80%,60%,0.1)');
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, chin.y - faceH*0.3, w, h - chin.y + faceH*0.3);
+      ctx.strokeStyle = 'hsla(' + hue + ',80%,70%,0.4)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(bodyCenterX, (shoulderY+chin.y)/2, eyeDist*1.5, faceH*0.8, 0, 0, Math.PI*2);
+      ctx.stroke();
+      break;
+    }
+  }
+}
+
+// ===== HAND FX =====
+const handParticles = {};
+function drawHandFX(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const eyeDist = Math.sqrt((eyeR.x-eyeL.x)**2+(eyeR.y-eyeL.y)**2);
+  const eyeMid = { x:(eyeL.x+eyeR.x)/2, y:(eyeL.y+eyeR.y)/2 };
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const faceH = Math.sqrt((chin.y-forehead.y)**2+(chin.x-forehead.x)**2);
+  const nose = toScreen(faceLandmarks[1], w, h);
+  const t = Date.now()/1000;
+  const handX = eyeMid.x + eyeDist * 1.2;
+  const handY = eyeMid.y + eyeDist * 0.5;
+  const handX2 = eyeMid.x - eyeDist * 1.2;
+  if (!handParticles[type]) handParticles[type] = [];
+  const pts = handParticles[type];
+  switch(type) {
+    case 'peace_sparkle': {
+      if (pts.length < 30) {
+        for (let i = 0; i < 3; i++) {
+          pts.push({ x: handX + (Math.random()-0.5)*eyeDist, y: handY - eyeDist*0.5 + (Math.random()-0.5)*eyeDist, vx: (Math.random()-0.5)*2, vy: -(1+Math.random()*3), life: 1, size: 2+Math.random()*5, hue: 50+Math.random()*120 });
+          pts.push({ x: handX2 + (Math.random()-0.5)*eyeDist, y: handY - eyeDist*0.5 + (Math.random()-0.5)*eyeDist, vx: (Math.random()-0.5)*2, vy: -(1+Math.random()*3), life: 1, size: 2+Math.random()*5, hue: 50+Math.random()*120 });
+        }
+      }
+      for (let i = pts.length-1; i >= 0; i--) {
+        const p = pts[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.02; p.size *= 0.98;
+        if (p.life <= 0 || p.y < 0) { pts.splice(i,1); continue; }
+        ctx.fillStyle = 'hsla(' + p.hue + ',100%,70%,' + p.life + ')';
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = 'bold ' + Math.round(eyeDist*0.25) + 'px sans-serif';
+      ctx.fillText('✌️', handX - eyeDist*0.15, handY - eyeDist*0.3);
+      ctx.fillText('✌️', handX2 - eyeDist*0.15, handY - eyeDist*0.3);
+      break;
+    }
+    case 'fire_hand': {
+      [handX, handX2].forEach(hx => {
+        for (let i = 0; i < 5; i++) {
+          pts.push({ x: hx + (Math.random()-0.5)*eyeDist*0.5, y: handY, vy: -(2+Math.random()*4), life: 1, size: 4+Math.random()*8, hue: Math.random()*40 });
+        }
+      });
+      for (let i = pts.length-1; i >= 0; i--) {
+        const p = pts[i]; p.y += p.vy; p.life -= 0.03; p.size *= 0.96;
+        if (p.life <= 0) { pts.splice(i,1); continue; }
+        ctx.fillStyle = 'hsla(' + (p.hue+(1-p.life)*30) + ',100%,' + (40+p.life*30) + '%,' + p.life + ')';
+        ctx.beginPath(); ctx.arc(p.x + Math.sin(t*8+i)*5, p.y, p.size, 0, Math.PI*2); ctx.fill();
+      }
+      if (pts.length > 250) pts.splice(0, pts.length-250);
+      break;
+    }
+    case 'magic_wand': {
+      const wandX = eyeMid.x + eyeDist * 1.5;
+      const wandY = eyeMid.y - eyeDist * 0.2;
+      ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(wandX, wandY); ctx.lineTo(wandX + eyeDist*0.8, wandY + eyeDist*0.8); ctx.stroke();
+      for (let i = 0; i < 8; i++) {
+        pts.push({ x: wandX, y: wandY, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 1, size: 2+Math.random()*4, hue: Math.random()*360 });
+      }
+      for (let i = pts.length-1; i >= 0; i--) {
+        const p = pts[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.025; p.size *= 0.97;
+        if (p.life <= 0) { pts.splice(i,1); continue; }
+        ctx.fillStyle = 'hsla(' + (p.hue+t*100) + ',100%,70%,' + p.life + ')';
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+      }
+      if (pts.length > 200) pts.splice(0, pts.length-200);
+      break;
+    }
+    case 'stop_sign': {
+      [handX, handX2].forEach(hx => {
+        const sx = hx - eyeDist*0.3, sy = handY - eyeDist*0.5;
+        const sz = eyeDist * 0.6;
+        ctx.save(); ctx.translate(hx, handY - eyeDist*0.2);
+        for (let i = 0; i < 8; i++) {
+          const a = (i/8)*Math.PI*2 - Math.PI/8;
+          const px = Math.cos(a)*sz, py = Math.sin(a)*sz;
+          if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        }
+        ctx.closePath(); ctx.fillStyle = '#cc0000'; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(sz*0.45) + 'px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('STOP', 0, 0);
+        ctx.restore();
+      });
+      break;
+    }
+    case 'heart_hands': {
+      [handX, handX2].forEach(hx => {
+        const hy = handY - eyeDist*0.3;
+        const s = eyeDist * 0.015;
+        ctx.save(); ctx.translate(hx, hy); ctx.scale(s, s);
+        ctx.fillStyle = 'rgba(255,50,80,0.8)';
+        ctx.beginPath(); ctx.moveTo(0, 5); ctx.bezierCurveTo(-12, -8, -22, 2, 0, 22); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0, 5); ctx.bezierCurveTo(12, -8, 22, 2, 0, 22); ctx.fill();
+        ctx.restore();
+      });
+      break;
+    }
+  }
+}
+
+// ===== FACE REPLACE =====
+function drawFaceReplace(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const nose = toScreen(faceLandmarks[1], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const mouthL = toScreen(faceLandmarks[61], w, h);
+  const mouthR = toScreen(faceLandmarks[291], w, h);
+  const eyeDist = Math.sqrt((eyeR.x-eyeL.x)**2+(eyeR.y-eyeL.y)**2);
+  const eyeMid = { x:(eyeL.x+eyeR.x)/2, y:(eyeL.y+eyeR.y)/2 };
+  const faceH = Math.sqrt((chin.y-forehead.y)**2+(chin.x-forehead.x)**2);
+  const faceW = eyeDist * 2.5;
+  const cx = (forehead.x+chin.x)/2, cy = (forehead.y+chin.y)/2;
+  const angle = Math.atan2(eyeR.y-eyeL.y, eyeR.x-eyeL.x);
+  const t = Date.now()/1000;
+  switch(type) {
+    case 'zombie_face': {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+      ctx.globalAlpha = 0.35;
+      const g = ctx.createRadialGradient(0, 0, eyeDist*0.3, 0, 0, faceH*0.6);
+      g.addColorStop(0, 'rgba(80,120,60,0.5)');
+      g.addColorStop(0.5, 'rgba(60,100,40,0.3)');
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(0, 0, faceW*0.5, faceH*0.45, 0, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      ctx.fillStyle = 'rgba(200,0,0,0.6)';
+      ctx.beginPath(); ctx.ellipse(mouthL.x+eyeDist*0.1, mouthL.y+eyeDist*0.05, eyeDist*0.15, eyeDist*0.08, 0.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(mouthR.x-eyeDist*0.1, mouthR.y-eyeDist*0.05, eyeDist*0.12, eyeDist*0.06, -0.3, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(80,100,60,0.5)'; ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i++) {
+        const sx = forehead.x + (Math.random()-0.5)*faceW;
+        const sy = forehead.y + Math.random()*faceH*0.3;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx+(Math.random()-0.5)*15, sy+10+Math.random()*20); ctx.stroke();
+      }
+      break;
+    }
+    case 'alien_face': {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+      ctx.globalAlpha = 0.4;
+      const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, faceH*0.5);
+      g2.addColorStop(0, 'rgba(100,200,100,0.5)');
+      g2.addColorStop(1, 'rgba(50,150,50,0.15)');
+      ctx.fillStyle = g2;
+      ctx.beginPath(); ctx.ellipse(0, 0, faceW*0.48, faceH*0.48, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.beginPath(); ctx.ellipse(-eyeDist*0.35, -eyeDist*0.05, eyeDist*0.35, eyeDist*0.2, -0.15, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(eyeDist*0.35, -eyeDist*0.05, eyeDist*0.35, eyeDist*0.2, 0.15, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,255,100,0.6)';
+      ctx.beginPath(); ctx.ellipse(-eyeDist*0.35, -eyeDist*0.05, eyeDist*0.15, eyeDist*0.08, -0.15, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(eyeDist*0.35, -eyeDist*0.05, eyeDist*0.15, eyeDist*0.08, 0.15, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      break;
+    }
+    case 'robot_face': {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+      ctx.globalAlpha = 0.35;
+      const g3 = ctx.createLinearGradient(-faceW*0.5, 0, faceW*0.5, 0);
+      g3.addColorStop(0, 'rgba(150,150,170,0.5)');
+      g3.addColorStop(0.5, 'rgba(200,200,220,0.5)');
+      g3.addColorStop(1, 'rgba(150,150,170,0.5)');
+      ctx.fillStyle = g3;
+      ctx.beginPath(); ctx.ellipse(0, 0, faceW*0.48, faceH*0.45, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(100,200,255,0.7)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(-eyeDist*0.3, 0, eyeDist*0.25, eyeDist*0.15, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(eyeDist*0.3, 0, eyeDist*0.25, eyeDist*0.15, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = 'rgba(100,200,255,0.3)';
+      ctx.beginPath(); ctx.ellipse(-eyeDist*0.3, 0, eyeDist*0.1, eyeDist*0.06, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(eyeDist*0.3, 0, eyeDist*0.1, eyeDist*0.06, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(100,200,255,0.4)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        const lx = -faceW*0.3 + i*(faceW*0.6/4);
+        ctx.beginPath(); ctx.moveTo(lx, -faceH*0.2); ctx.lineTo(lx, faceH*0.2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      break;
+    }
+    case 'clown_face_full': {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath(); ctx.ellipse(0, 0, faceW*0.48, faceH*0.45, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,100,100,0.5)';
+      ctx.beginPath(); ctx.ellipse(0, -eyeDist*0.2, faceW*0.15, eyeDist*0.15, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(100,100,255,0.5)';
+      ctx.beginPath(); ctx.ellipse(-eyeDist*0.3, 0, eyeDist*0.2, eyeDist*0.15, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(100,200,100,0.5)';
+      ctx.beginPath(); ctx.ellipse(eyeDist*0.3, 0, eyeDist*0.2, eyeDist*0.15, 0, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,50,50,0.7)';
+      ctx.beginPath(); ctx.arc(nose.x, nose.y, eyeDist*0.15, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,50,50,0.5)'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(eyeMid.x, mouthL.y - eyeDist*0.1, eyeDist*0.5, 0.1, Math.PI-0.1);
+      ctx.stroke();
+      break;
+    }
+    case 'gold_face': {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+      const shimmer = Math.sin(t*3) * 0.15 + 0.35;
+      ctx.globalAlpha = shimmer;
+      const g4 = ctx.createRadialGradient(-eyeDist*0.3, -eyeDist*0.2, eyeDist*0.2, 0, 0, faceH*0.5);
+      g4.addColorStop(0, 'rgba(255,215,0,0.6)');
+      g4.addColorStop(0.5, 'rgba(218,165,32,0.4)');
+      g4.addColorStop(1, 'rgba(184,134,11,0.1)');
+      ctx.fillStyle = g4;
+      ctx.beginPath(); ctx.ellipse(0, 0, faceW*0.48, faceH*0.45, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,215,0,0.5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(0, 0, faceW*0.5, faceH*0.47, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      break;
+    }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
