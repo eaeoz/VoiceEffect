@@ -1592,6 +1592,7 @@ async function enumerateVideoDevices() {
     const sel = $('videoDeviceSelect');
     if (!sel) return;
     const saved = state.settings.videoDevice || null;
+    const savedLabel = state.settings.videoDeviceLabel || null;
     sel.innerHTML = '';
     if (videoDevs.length === 0) { sel.innerHTML = '<option value="default">Default Camera</option>'; }
     else {
@@ -1600,7 +1601,20 @@ async function enumerateVideoDevices() {
         sel.innerHTML += '<option value="' + d.deviceId + '">' + label + '</option>';
       });
     }
-    if (saved && sel.querySelector('option[value="' + saved + '"]')) sel.value = saved;
+    console.log('[Video] enumerateVideoDevices saved:', saved, 'savedLabel:', savedLabel, 'devices:', videoDevs.map(d => d.deviceId + '|' + d.label).join(', '));
+    if (saved && sel.querySelector('option[value="' + saved + '"]')) {
+      sel.value = saved;
+    } else if (savedLabel) {
+      const match = Array.from(sel.options).find(o => o.text === savedLabel);
+      if (match) {
+        sel.value = match.value;
+        console.log('[Video] Matched saved device by label:', savedLabel, '→', match.value);
+      } else {
+        sel.selectedIndex = 0;
+      }
+    } else {
+      sel.selectedIndex = 0;
+    }
   } catch(e) { console.error('[Video] Device enum error:', e); }
 }
 
@@ -1613,17 +1627,35 @@ async function toggleVideo() {
 }
 
 async function startVideo() {
-  const deviceId = state.settings.videoDevice || 'default';
+  const savedId = state.settings.videoDevice || null;
+  const savedLabel = state.settings.videoDeviceLabel || null;
   const constraints = { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } };
-  if (deviceId && deviceId !== 'default') constraints.video.deviceId = { exact: deviceId };
-  console.log('[Video] Starting with device:', deviceId, JSON.stringify(constraints));
+  if (savedId && savedId !== 'default') constraints.video.deviceId = { exact: savedId };
+  console.log('[Video] Starting with device:', savedId, 'label:', savedLabel);
   try {
     videoState.stream = await navigator.mediaDevices.getUserMedia(constraints);
   } catch(e) {
-    if (e.name === 'OverconstrainedError' && deviceId !== 'default') {
-      console.warn('[Video] Device', deviceId, 'not available, retrying with default');
-      delete constraints.video.deviceId;
-      videoState.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (e.name === 'OverconstrainedError') {
+      console.warn('[Video] Device', savedId, 'not available, trying by label:', savedLabel);
+      if (savedLabel) {
+        try {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const match = devs.find(d => d.kind === 'videoinput' && d.label === savedLabel);
+          if (match) {
+            const c2 = { video: { width: { ideal: 1280 }, height: { ideal: 720 }, deviceId: { exact: match.deviceId } } };
+            videoState.stream = await navigator.mediaDevices.getUserMedia(c2);
+            state.settings.videoDevice = match.deviceId;
+            if (api) api.saveSettings(state.settings);
+          } else { throw new Error('Device not found'); }
+        } catch(e2) {
+          console.warn('[Video] Label match also failed, using default');
+          delete constraints.video.deviceId;
+          videoState.stream = await navigator.mediaDevices.getUserMedia(constraints);
+        }
+      } else {
+        delete constraints.video.deviceId;
+        videoState.stream = await navigator.mediaDevices.getUserMedia(constraints);
+      }
     } else {
       throw e;
     }
@@ -1634,6 +1666,15 @@ async function startVideo() {
     videoEl.srcObject = videoState.stream;
     await videoEl.play();
     console.log('[Video] Video playing, readyState:', videoEl.readyState, 'size:', videoEl.videoWidth, 'x', videoEl.videoHeight);
+    const track = videoState.stream.getVideoTracks()[0];
+    const actualId = track ? track.getSettings().deviceId : null;
+    const actualLabel = track ? track.label : null;
+    if (actualId && state.settings.videoDevice !== actualId) {
+      state.settings.videoDevice = actualId;
+      state.settings.videoDeviceLabel = actualLabel;
+      if (api) api.saveSettings(state.settings);
+      console.log('[Video] Synced actual device:', actualId, actualLabel);
+    }
     videoState.running = true;
     if (api) { await api.startObsServer(); obsStreamActive = true; }
     $('videoPowerBtn').classList.add('active');
