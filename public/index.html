@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.github.com; media-src 'self' blob: mediastream:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; connect-src 'self' https://*.github.com https://cdn.jsdelivr.net https://unpkg.com; media-src 'self' blob: mediastream:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; frame-src 'self' blob:;">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VoiceEffect</title>
 <style>
@@ -221,7 +221,41 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
 [data-theme="light"] .device-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666688' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
 [data-theme="light"] .fx-toggle{background:#e8e8f0}
 [data-theme="light"] .fx-toggle::after{background:#8888aa}
+[data-theme="light"] .video-power-btn{background:#fff}
+[data-theme="light"] .video-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666688' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+
+.video-panel{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;backdrop-filter:blur(20px);flex-shrink:0}
+.video-power-btn{width:52px;height:52px;border-radius:50%;border:2.5px solid var(--border);background:var(--bg-secondary);cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;transition:all .3s ease;flex-shrink:0}
+.video-power-btn svg{width:22px;height:22px;stroke:var(--text-secondary);transition:all .3s ease}
+.video-power-btn.active{border-color:#06b6d4;box-shadow:0 0 24px rgba(6,182,212,0.3),inset 0 0 16px rgba(6,182,212,0.1)}
+.video-power-btn.active svg{stroke:#06b6d4}
+.video-power-btn:hover.active{border-color:var(--danger);box-shadow:0 0 24px rgba(239,68,68,0.3)}
+.video-power-btn:hover.active svg{stroke:var(--danger)}
+.video-pulse{position:absolute;width:100%;height:100%;border-radius:50%;border:2px solid #06b6d4;opacity:0;pointer-events:none}
+.video-power-btn.active .video-pulse{animation:pulse 2s ease-out infinite}
+
+.video-controls{display:flex;flex-direction:column;gap:4px}
+.video-select{width:180px;padding:5px 24px 5px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--bg-secondary);color:var(--text-primary);font-size:10px;cursor:pointer;outline:none;
+appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+background-repeat:no-repeat;background-position:right 6px center}
+.video-select:focus{border-color:#06b6d4}
+.video-select:disabled{opacity:0.5;cursor:not-allowed}
+.video-select option,.video-select optgroup{background:var(--bg-secondary);color:var(--text-primary)}
+
+.obs-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);border-radius:var(--radius-xs);font-size:10px;font-weight:600;cursor:pointer;transition:.2s;white-space:nowrap}
+.obs-btn:hover{border-color:#06b6d4;color:#06b6d4;background:rgba(6,182,212,0.1)}
+
+.video-preview-overlay{display:none;position:fixed;top:50px;right:20px;width:320px;background:rgba(10,10,26,0.95);border:1px solid var(--border);border-radius:var(--radius);z-index:90;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);backdrop-filter:blur(20px)}
+.video-preview-overlay.visible{display:block}
+.video-preview-overlay.expanded{width:640px}
+.video-preview-header{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:rgba(0,0,0,0.3);border-bottom:1px solid var(--border);cursor:move;-webkit-app-region:drag}
+.video-preview-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#06b6d4}
+.video-preview-actions{display:flex;gap:2px;-webkit-app-region:no-drag}
+.video-preview-btn{width:22px;height:22px;border:none;background:transparent;color:var(--text-secondary);cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:14px;transition:.15s}
+.video-preview-btn:hover{background:rgba(6,182,212,0.2);color:#06b6d4}
+#videoCanvas{width:100%;height:auto;display:block;background:#000}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.js" crossorigin="anonymous"></script>
 </head>
 <body>
 <div class="titlebar">
@@ -279,6 +313,138 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
           </div>
           <input type="range" class="sens-slider" id="outputSens" min="50" max="600" value="100">
         </div>
+      </div>
+    </div>
+
+    <div class="video-panel" id="videoPanel">
+      <button class="video-power-btn" id="videoPowerBtn" onclick="toggleVideo()" title="Toggle Video Effects">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+        </svg>
+        <div class="video-pulse"></div>
+      </button>
+      <div class="video-controls">
+        <select class="video-select" id="videoDeviceSelect" onchange="changeVideoDevice()" title="Video Input Device">
+          <option value="default">Default Camera</option>
+        </select>
+        <select class="video-select" id="videoEffectSelect" onchange="changeVideoEffect()" title="Video Effect">
+          <option value="none">No Effect</option>
+          <optgroup label="Face Mesh">
+            <option value="face_mesh">Face Mesh Wireframe</option>
+            <option value="face_contour">Face Contour Lines</option>
+            <option value="face_glow">Face Landmark Glow</option>
+            <option value="face_dots">Face Dots</option>
+          </optgroup>
+          <optgroup label="Accessories">
+            <option value="glasses">Glasses</option>
+            <option value="sunglasses">Sunglasses</option>
+            <option value="heart_glasses">Heart Glasses</option>
+            <option value="mask">Masquerade Mask</option>
+            <option value="crown">Crown</option>
+            <option value="party_hat">Party Hat</option>
+            <option value="witch_hat">Witch Hat</option>
+            <option value="halo">Angel Halo</option>
+            <option value="horns">Devil Horns</option>
+            <option value="bunny_ears">Bunny Ears</option>
+            <option value="cat_ears">Cat Ears</option>
+            <option value="dog_ears">Dog Ears</option>
+            <option value="antlers">Reindeer Antlers</option>
+            <option value="headband">Flower Headband</option>
+            <option value="bow">Hair Bow</option>
+          </optgroup>
+          <optgroup label="Face Paint">
+            <option value="war_paint">War Paint</option>
+            <option value="clown_makeup">Clown Makeup</option>
+            <option value="cat_face">Cat Face Paint</option>
+            <option value="skull_face">Skull Face Paint</option>
+            <option value="spider_web">Spider Web</option>
+            <option value="butterfly_mask">Butterfly Mask</option>
+          </optgroup>
+          <optgroup label="Facial Hair">
+            <option value="mustache">Mustache</option>
+            <option value="beard">Full Beard</option>
+            <option value="goatee">Goatee</option>
+            <option value="handlebar">Handlebar Mustache</option>
+          </optgroup>
+          <optgroup label="Face Deform">
+            <option value="big_eyes">Big Eyes</option>
+            <option value="tiny_eyes">Tiny Eyes</option>
+            <option value="big_mouth">Big Mouth</option>
+            <option value="tiny_mouth">Tiny Mouth</option>
+            <option value="big_nose">Big Nose</option>
+            <option value="tiny_nose">Tiny Nose</option>
+            <option value="long_face">Long Face</option>
+            <option value="wide_face">Wide Face</option>
+            <option value="pinch_face">Pinch Face</option>
+            <option value="bulge_face">Bulge Face</option>
+            <option value="alien_head">Alien Head</option>
+            <option value="fish_eye">Fish Eye</option>
+          </optgroup>
+          <optgroup label="Eye FX">
+            <option value="laser_eyes">Laser Eyes</option>
+            <option value="glow_eyes">Glowing Eyes</option>
+            <option value="fire_eyes">Fire Eyes</option>
+            <option value="rainbow_eyes">Rainbow Eyes</option>
+            <option value="x_eyes">X Eyes</option>
+          </optgroup>
+          <optgroup label="Nose FX">
+            <option value="clown_nose">Clown Nose</option>
+            <option value="rudolph_nose">Rudolph Nose</option>
+            <option value="pig_nose">Pig Nose</option>
+          </optgroup>
+          <optgroup label="Head FX">
+            <option value="fire_head">Fire Head</option>
+            <option value="electric_head">Electric Head</option>
+            <option value="aura">Mystic Aura</option>
+          </optgroup>
+          <optgroup label="Particles">
+            <option value="sparkles">Sparkles</option>
+            <option value="hearts">Floating Hearts</option>
+            <option value="stars">Stars</option>
+            <option value="snow">Snowfall</option>
+            <option value="confetti">Confetti</option>
+            <option value="bubbles">Bubbles</option>
+            <option value="fire">Fire Effect</option>
+            <option value="rain">Rain Effect</option>
+            <option value="petals">Cherry Blossom Petals</option>
+            <option value="butterflies">Butterflies</option>
+          </optgroup>
+          <optgroup label="Color Filters">
+            <option value="grayscale">Grayscale</option>
+            <option value="sepia">Sepia</option>
+            <option value="vintage">Vintage</option>
+            <option value="invert">Invert Colors</option>
+            <option value="night_vision">Night Vision</option>
+            <option value="thermal">Thermal Vision</option>
+            <option value="xray">X-Ray</option>
+            <option value="neon">Neon Glow</option>
+            <option value="dramatic">Dramatic</option>
+            <option value="sunset">Sunset Glow</option>
+            <option value="cold_blue">Cold Blue</option>
+            <option value="matrix">Matrix Green</option>
+            <option value="dreamy">Dreamy Soft Focus</option>
+          </optgroup>
+          <optgroup label="Screen FX">
+            <option value="pixelate">Pixelate</option>
+            <option value="ascii_art">ASCII Art</option>
+            <option value="mirror_horizontal">Mirror Horizontal</option>
+            <option value="mirror_vertical">Mirror Vertical</option>
+            <option value="glitch">Glitch Distortion</option>
+            <option value="vhs">VHS Retro</option>
+            <option value="old_film">Old Film</option>
+            <option value="comic_book">Comic Book</option>
+            <option value="emboss">Emboss</option>
+            <option value="edge_detect">Edge Detect</option>
+          </optgroup>
+        </select>
+        <button class="obs-btn" onclick="openOBSSource()" title="Open OBS Browser Source">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          OBS
+        </button>
       </div>
     </div>
   </div>
@@ -350,7 +516,8 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
         <label><input type="checkbox" id="setMinTray" checked> Minimize to tray</label>
         <label><input type="checkbox" id="setStartMinimized"> Start minimized</label>
         <label><input type="checkbox" id="setShowLatency" checked> Show latency</label>
-        <label><input type="checkbox" id="setAutoStart"> Auto-start</label>
+        <label><input type="checkbox" id="setAutoStart"> Auto-start audio</label>
+        <label><input type="checkbox" id="setAutoStartVideo"> Auto-start video</label>
       </div>
     </div>
     <div class="form-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
@@ -393,6 +560,19 @@ box-shadow:var(--shadow);backdrop-filter:blur(20px);transition:transform .3s eas
 </div>
 
 <div class="toast" id="toast"></div>
+
+<video id="videoInput" autoplay playsinline muted style="display:none"></video>
+<div class="video-preview-overlay" id="videoPreviewOverlay">
+  <div class="video-preview-header">
+    <span class="video-preview-title">Video Effects Preview</span>
+    <div class="video-preview-actions">
+      <button class="video-preview-btn" onclick="toggleVideoPreviewSize()" title="Toggle Size">&#8596;</button>
+      <button class="video-preview-btn" onclick="toggleVideoPreviewDrag()" title="Move" id="videoDragBtn">&#9776;</button>
+      <button class="video-preview-btn" onclick="closeVideoPreview()" title="Close">&times;</button>
+    </div>
+  </div>
+  <canvas id="videoCanvas" width="640" height="480"></canvas>
+</div>
 
 <script>
 const EFFECTS = [
@@ -441,12 +621,14 @@ async function init(){
   await loadSettings();
   await enumerateBrowserDevices();
   loadDevices();
+  await enumerateVideoDevices();
   updateAdapterUI();
   await loadProfileSelect(true);
   setupEventListeners();
   checkAdapterStatus();
   showToast('VoiceEffect ready');
   if(state.settings.autoStart) togglePower();
+  if(state.settings.autoStartVideo) toggleVideo();
 }
 
 function loadTheme(){
@@ -972,6 +1154,7 @@ async function loadSettings(){
     if($('statLatencyRow')) $('statLatencyRow').style.display = s.showLatency === false ? 'none' : '';
     if($('setStartMinimized')) $('setStartMinimized').checked = s.startMinimized || false;
     if($('setAutoStart')) $('setAutoStart').checked = s.autoStart || false;
+    if($('setAutoStartVideo')) $('setAutoStartVideo').checked = s.autoStartVideo || false;
     if($('inputSens')){ $('inputSens').value = s.inputSensitivity || 300; $('inputSensVal').textContent = s.inputSensitivity || 300; }
     if($('outputSens')){ $('outputSens').value = s.outputSensitivity || 100; $('outputSensVal').textContent = s.outputSensitivity || 100; }
     if(s.effects) {
@@ -992,6 +1175,13 @@ async function loadSettings(){
       });
     }
     updateAdapterUI();
+    if(s.videoDevice && $('videoDeviceSelect')) {
+      try { $('videoDeviceSelect').value = s.videoDevice; } catch(e) {}
+    }
+    if(s.activeVideoEffect && $('videoEffectSelect')) {
+      videoState.effect = s.activeVideoEffect;
+      $('videoEffectSelect').value = s.activeVideoEffect;
+    }
   } catch(e) { console.error('Settings load error:', e); }
 }
 
@@ -1005,6 +1195,7 @@ async function saveSettings(){
     startMinimized: $('setStartMinimized').checked,
     showLatency: $('setShowLatency').checked,
     autoStart: $('setAutoStart').checked,
+    autoStartVideo: $('setAutoStartVideo')?.checked || false,
     effects: state.activeEffects
   };
   await api.saveSettings(s);
@@ -1311,6 +1502,1324 @@ function setupEventListeners(){
       if(api) api.saveSettings(state.settings);
     });
   }
+}
+
+// ===== VIDEO EFFECTS ENGINE =====
+let videoState = { running: false, stream: null, effect: 'none', animFrame: null, faceLandmarker: null, mediapipeReady: false, dragging: false, expanded: false };
+let faceLandmarks = null;
+
+async function initMediaPipe() {
+  if (videoState.mediapipeReady) return true;
+  try {
+    if (typeof vision === 'undefined' && typeof FaceLandmarker === 'undefined') {
+      console.warn('[Video] MediaPipe vision not loaded from CDN, effects will use limited mode');
+      return false;
+    }
+    const Vision = typeof vision !== 'undefined' ? vision : window;
+    const filesetResolver = await Vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');
+    videoState.faceLandmarker = await Vision.FaceLandmarker.createFromOptions(filesetResolver, {
+      baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task', delegate: 'GPU' },
+      outputFaceBlendshapes: false, runningMode: 'VIDEO', numFaces: 2, minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5
+    });
+    videoState.mediapipeReady = true;
+    console.log('[Video] MediaPipe FaceLandmarker initialized');
+    return true;
+  } catch(e) { console.error('[Video] MediaPipe init error:', e); return false; }
+}
+
+async function enumerateVideoDevices() {
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const videoDevs = devs.filter(d => d.kind === 'videoinput');
+    const sel = $('videoDeviceSelect');
+    if (!sel) return;
+    const saved = state.settings.videoDevice || null;
+    sel.innerHTML = '';
+    if (videoDevs.length === 0) { sel.innerHTML = '<option value="default">Default Camera</option>'; }
+    else {
+      videoDevs.forEach((d, i) => {
+        const label = d.label || ('Camera ' + (i + 1));
+        sel.innerHTML += '<option value="' + d.deviceId + '">' + label + '</option>';
+      });
+    }
+    if (saved && sel.querySelector('option[value="' + saved + '"]')) sel.value = saved;
+  } catch(e) { console.error('[Video] Device enum error:', e); }
+}
+
+async function toggleVideo() {
+  if (videoState.running) { stopVideo(); }
+  else { await startVideo(); }
+}
+
+async function startVideo() {
+  const deviceId = state.settings.videoDevice || 'default';
+  const constraints = { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } };
+  if (deviceId && deviceId !== 'default') constraints.video.deviceId = { exact: deviceId };
+  try {
+    videoState.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const videoEl = $('videoInput');
+    videoEl.srcObject = videoState.stream;
+    await videoEl.play();
+    await initMediaPipe();
+    const overlay = $('videoPreviewOverlay');
+    if (overlay) overlay.classList.add('visible');
+    videoState.running = true;
+    $('videoPowerBtn').classList.add('active');
+    showToast('Video effects started');
+    enumerateVideoDevices();
+    renderVideoFrame();
+  } catch(e) { console.error('[Video] Start error:', e); showToast('Camera error: ' + e.message); }
+}
+
+function stopVideo() {
+  if (videoState.stream) { videoState.stream.getTracks().forEach(t => t.stop()); videoState.stream = null; }
+  if (videoState.animFrame) { cancelAnimationFrame(videoState.animFrame); videoState.animFrame = null; }
+  const videoEl = $('videoInput');
+  if (videoEl) videoEl.srcObject = null;
+  const overlay = $('videoPreviewOverlay');
+  if (overlay) overlay.classList.remove('visible');
+  videoState.running = false;
+  videoState.effect = 'none';
+  const sel = $('videoEffectSelect');
+  if (sel) sel.value = 'none';
+  $('videoPowerBtn').classList.remove('active');
+  showToast('Video effects stopped');
+}
+
+function changeVideoDevice() {
+  const id = $('videoDeviceSelect').value;
+  state.settings.videoDevice = id;
+  if (api) api.saveSettings(state.settings);
+  if (videoState.running) { stopVideo(); startVideo(); }
+}
+
+function changeVideoEffect() {
+  videoState.effect = $('videoEffectSelect').value;
+  state.settings.activeVideoEffect = videoState.effect;
+  if (api) api.saveSettings(state.settings);
+}
+
+function openOBSSource() {
+  const url = 'http://localhost:8080';
+  if (api) api.openObsBrowserSource(url);
+  showToast('OBS Browser Source URL copied to clipboard');
+}
+
+function toggleVideoPreviewSize() {
+  videoState.expanded = !videoState.expanded;
+  $('videoPreviewOverlay').classList.toggle('expanded', videoState.expanded);
+}
+
+function toggleVideoPreviewDrag() {}
+
+function closeVideoPreview() {
+  $('videoPreviewOverlay').classList.remove('visible');
+}
+
+let videoRenderTime = 0;
+function renderVideoFrame() {
+  if (!videoState.running) return;
+  videoState.animFrame = requestAnimationFrame(renderVideoFrame);
+  const video = $('videoInput');
+  const canvas = $('videoCanvas');
+  if (!video || !canvas || video.readyState < 2) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (videoState.faceLandmarker && videoState.mediapipeReady) {
+    try {
+      const now = performance.now();
+      const results = videoState.faceLandmarker.detectForVideo(video, now);
+      faceLandmarks = (results && results.faceLandmarks && results.faceLandmarks.length > 0) ? results.faceLandmarks[0] : null;
+    } catch(e) { faceLandmarks = null; }
+  } else { faceLandmarks = null; }
+  const effect = videoState.effect;
+  if (effect === 'none') {
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -w, 0, w, h);
+    ctx.restore();
+  } else {
+    applyVideoEffect(ctx, video, w, h, effect);
+  }
+}
+
+// ===== VIDEO EFFECTS =====
+function applyVideoEffect(ctx, video, w, h, effect) {
+  const hasFace = faceLandmarks && faceLandmarks.length > 0;
+  switch(effect) {
+    // Face Mesh
+    case 'face_mesh': drawFaceMeshEffect(ctx, video, w, h); break;
+    case 'face_contour': drawFaceContourEffect(ctx, video, w, h); break;
+    case 'face_glow': drawFaceGlowEffect(ctx, video, w, h); break;
+    case 'face_dots': drawFaceDotsEffect(ctx, video, w, h); break;
+    // Accessories
+    case 'glasses': drawAccessory(ctx, video, w, h, 'glasses'); break;
+    case 'sunglasses': drawAccessory(ctx, video, w, h, 'sunglasses'); break;
+    case 'heart_glasses': drawAccessory(ctx, video, w, h, 'heart_glasses'); break;
+    case 'mask': drawAccessory(ctx, video, w, h, 'mask'); break;
+    case 'crown': drawAccessory(ctx, video, w, h, 'crown'); break;
+    case 'party_hat': drawAccessory(ctx, video, w, h, 'party_hat'); break;
+    case 'witch_hat': drawAccessory(ctx, video, w, h, 'witch_hat'); break;
+    case 'halo': drawAccessory(ctx, video, w, h, 'halo'); break;
+    case 'horns': drawAccessory(ctx, video, w, h, 'horns'); break;
+    case 'bunny_ears': drawAccessory(ctx, video, w, h, 'bunny_ears'); break;
+    case 'cat_ears': drawAccessory(ctx, video, w, h, 'cat_ears'); break;
+    case 'dog_ears': drawAccessory(ctx, video, w, h, 'dog_ears'); break;
+    case 'antlers': drawAccessory(ctx, video, w, h, 'antlers'); break;
+    case 'headband': drawAccessory(ctx, video, w, h, 'headband'); break;
+    case 'bow': drawAccessory(ctx, video, w, h, 'bow'); break;
+    // Face Paint
+    case 'war_paint': drawFacePaint(ctx, video, w, h, 'war_paint'); break;
+    case 'clown_makeup': drawFacePaint(ctx, video, w, h, 'clown_makeup'); break;
+    case 'cat_face': drawFacePaint(ctx, video, w, h, 'cat_face'); break;
+    case 'skull_face': drawFacePaint(ctx, video, w, h, 'skull_face'); break;
+    case 'spider_web': drawFacePaint(ctx, video, w, h, 'spider_web'); break;
+    case 'butterfly_mask': drawFacePaint(ctx, video, w, h, 'butterfly_mask'); break;
+    // Facial Hair
+    case 'mustache': drawFacialHair(ctx, video, w, h, 'mustache'); break;
+    case 'beard': drawFacialHair(ctx, video, w, h, 'beard'); break;
+    case 'goatee': drawFacialHair(ctx, video, w, h, 'goatee'); break;
+    case 'handlebar': drawFacialHair(ctx, video, w, h, 'handlebar'); break;
+    // Face Deform
+    case 'big_eyes': drawFaceDeform(ctx, video, w, h, 'big_eyes'); break;
+    case 'tiny_eyes': drawFaceDeform(ctx, video, w, h, 'tiny_eyes'); break;
+    case 'big_mouth': drawFaceDeform(ctx, video, w, h, 'big_mouth'); break;
+    case 'tiny_mouth': drawFaceDeform(ctx, video, w, h, 'tiny_mouth'); break;
+    case 'big_nose': drawFaceDeform(ctx, video, w, h, 'big_nose'); break;
+    case 'tiny_nose': drawFaceDeform(ctx, video, w, h, 'tiny_nose'); break;
+    case 'long_face': drawFaceDeform(ctx, video, w, h, 'long_face'); break;
+    case 'wide_face': drawFaceDeform(ctx, video, w, h, 'wide_face'); break;
+    case 'pinch_face': drawFaceDeform(ctx, video, w, h, 'pinch_face'); break;
+    case 'bulge_face': drawFaceDeform(ctx, video, w, h, 'bulge_face'); break;
+    case 'alien_head': drawFaceDeform(ctx, video, w, h, 'alien_head'); break;
+    case 'fish_eye': drawFaceDeform(ctx, video, w, h, 'fish_eye'); break;
+    // Eye FX
+    case 'laser_eyes': drawEyeFX(ctx, video, w, h, 'laser_eyes'); break;
+    case 'glow_eyes': drawEyeFX(ctx, video, w, h, 'glow_eyes'); break;
+    case 'fire_eyes': drawEyeFX(ctx, video, w, h, 'fire_eyes'); break;
+    case 'rainbow_eyes': drawEyeFX(ctx, video, w, h, 'rainbow_eyes'); break;
+    case 'x_eyes': drawEyeFX(ctx, video, w, h, 'x_eyes'); break;
+    // Nose FX
+    case 'clown_nose': drawNoseFX(ctx, video, w, h, 'clown_nose'); break;
+    case 'rudolph_nose': drawNoseFX(ctx, video, w, h, 'rudolph_nose'); break;
+    case 'pig_nose': drawNoseFX(ctx, video, w, h, 'pig_nose'); break;
+    // Head FX
+    case 'fire_head': drawHeadFX(ctx, video, w, h, 'fire_head'); break;
+    case 'electric_head': drawHeadFX(ctx, video, w, h, 'electric_head'); break;
+    case 'aura': drawHeadFX(ctx, video, w, h, 'aura'); break;
+    // Particles
+    case 'sparkles': drawParticles(ctx, video, w, h, 'sparkles'); break;
+    case 'hearts': drawParticles(ctx, video, w, h, 'hearts'); break;
+    case 'stars': drawParticles(ctx, video, w, h, 'stars'); break;
+    case 'snow': drawParticles(ctx, video, w, h, 'snow'); break;
+    case 'confetti': drawParticles(ctx, video, w, h, 'confetti'); break;
+    case 'bubbles': drawParticles(ctx, video, w, h, 'bubbles'); break;
+    case 'fire': drawParticles(ctx, video, w, h, 'fire'); break;
+    case 'rain': drawParticles(ctx, video, w, h, 'rain'); break;
+    case 'petals': drawParticles(ctx, video, w, h, 'petals'); break;
+    case 'butterflies': drawParticles(ctx, video, w, h, 'butterflies'); break;
+    // Color Filters
+    case 'grayscale': drawColorFilter(ctx, video, w, h, 'grayscale'); break;
+    case 'sepia': drawColorFilter(ctx, video, w, h, 'sepia'); break;
+    case 'vintage': drawColorFilter(ctx, video, w, h, 'vintage'); break;
+    case 'invert': drawColorFilter(ctx, video, w, h, 'invert'); break;
+    case 'night_vision': drawColorFilter(ctx, video, w, h, 'night_vision'); break;
+    case 'thermal': drawColorFilter(ctx, video, w, h, 'thermal'); break;
+    case 'xray': drawColorFilter(ctx, video, w, h, 'xray'); break;
+    case 'neon': drawColorFilter(ctx, video, w, h, 'neon'); break;
+    case 'dramatic': drawColorFilter(ctx, video, w, h, 'dramatic'); break;
+    case 'sunset': drawColorFilter(ctx, video, w, h, 'sunset'); break;
+    case 'cold_blue': drawColorFilter(ctx, video, w, h, 'cold_blue'); break;
+    case 'matrix': drawColorFilter(ctx, video, w, h, 'matrix'); break;
+    case 'dreamy': drawColorFilter(ctx, video, w, h, 'dreamy'); break;
+    // Screen FX
+    case 'pixelate': drawScreenFX(ctx, video, w, h, 'pixelate'); break;
+    case 'ascii_art': drawScreenFX(ctx, video, w, h, 'ascii_art'); break;
+    case 'mirror_horizontal': drawScreenFX(ctx, video, w, h, 'mirror_horizontal'); break;
+    case 'mirror_vertical': drawScreenFX(ctx, video, w, h, 'mirror_vertical'); break;
+    case 'glitch': drawScreenFX(ctx, video, w, h, 'glitch'); break;
+    case 'vhs': drawScreenFX(ctx, video, w, h, 'vhs'); break;
+    case 'old_film': drawScreenFX(ctx, video, w, h, 'old_film'); break;
+    case 'comic_book': drawScreenFX(ctx, video, w, h, 'comic_book'); break;
+    case 'emboss': drawScreenFX(ctx, video, w, h, 'emboss'); break;
+    case 'edge_detect': drawScreenFX(ctx, video, w, h, 'edge_detect'); break;
+    default: ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  }
+}
+
+// ===== FACE MESH EFFECTS =====
+function toScreen(lm, w, h) { return { x: (1 - lm.x) * w, y: lm.y * h }; }
+
+function drawFaceMeshEffect(ctx, video, w, h) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  ctx.strokeStyle = 'rgba(0,255,255,0.6)';
+  ctx.lineWidth = 1;
+  const connections = [[0,1],[1,2],[2,3],[3,7],[0,4],[4,5],[5,6],[6,8],[9,10],[10,11],[11,12],[12,13],[13,14],[14,15],[15,16],[16,17],[17,18],[0,17],[17,18],[18,19],[19,20],[0,20],[20,21],[21,22],[22,23],[23,24],[24,25],[25,26],[26,27],[27,28],[0,28],[28,29],[29,30],[30,31],[31,32],[32,33],[33,34],[34,35],[35,36],[0,36],[36,37],[37,38],[38,39],[39,40],[40,41],[41,42],[42,43],[43,44],[0,44],[44,45],[45,46],[46,47],[47,48],[48,49],[49,50],[50,51],[51,52],[52,53],[53,54],[54,55],[55,56],[56,57],[57,58],[0,58],[58,59],[59,60],[60,61],[61,62],[62,63],[63,64],[64,65],[65,66],[0,66],[66,67],[67,68],[68,69],[69,70],[70,71],[71,72],[72,73],[0,73],[73,74],[74,75],[75,76],[76,77],[77,78],[78,79],[79,80],[0,80],[80,81],[81,82],[82,83],[83,84],[84,85],[85,86],[86,87],[87,88],[0,88],[88,89],[89,90],[90,91],[91,92],[92,93],[93,94],[94,95],[0,95],[95,96],[96,97],[97,98],[98,99],[99,100],[100,101],[101,102],[0,102],[102,103],[103,104],[104,105],[105,106],[106,107],[107,108],[108,109],[0,109],[109,110],[110,111],[111,112],[112,113],[113,114],[114,115],[115,116],[0,116],[116,117],[117,118],[118,119],[119,120],[120,121],[121,122],[122,123],[123,124],[0,124],[124,125],[125,126],[126,127],[127,128],[128,129],[129,130],[130,131],[0,131],[131,132],[132,133],[133,134],[134,135],[135,136],[136,137],[137,138],[0,138],[138,139],[139,140],[140,141],[141,142],[142,143],[143,144],[144,145],[0,145],[145,146],[146,147],[147,148],[148,149],[149,150],[150,151],[151,152],[0,152],[152,153],[153,154],[154,155],[155,156],[156,157],[157,158],[158,159],[159,160],[0,160],[160,161],[161,162],[162,163],[163,164],[164,165],[165,166],[166,167],[0,167],[167,168],[168,169],[169,170],[170,171],[171,172],[172,173],[173,174],[0,174],[174,175],[175,176],[176,177],[177,178],[178,179],[179,180],[180,181],[0,181],[181,182],[182,183],[183,184],[184,185],[185,186],[186,187],[187,188],[188,189],[0,189],[189,190],[190,191],[191,192],[192,193],[193,194],[194,195],[195,196],[0,196],[196,197],[197,198],[198,199],[199,200],[200,201],[201,202],[202,203],[203,204],[0,204],[204,205],[205,206],[206,207],[207,208],[208,209],[209,210],[210,211],[211,212],[0,212],[212,213],[213,214],[214,215],[215,216],[216,217],[217,218],[218,219],[219,220],[0,220],[220,221],[221,222],[222,223],[223,224],[224,225],[225,226],[226,227],[227,228],[0,228],[228,229],[229,230],[230,231],[231,232],[232,233],[233,234],[234,235],[235,236],[0,236],[236,237],[237,238],[238,239],[239,240],[240,241],[241,242],[242,243],[243,244],[244,245],[0,245],[245,246],[246,247],[247,248],[248,249],[249,250],[250,251],[251,252],[252,253],[253,254],[254,255],[255,256],[256,257],[257,258],[258,259],[259,260],[260,261],[261,262],[262,263],[263,264],[0,264],[264,265],[265,266],[266,267],[267,268],[268,269],[269,270],[270,271],[271,272],[272,273],[273,274],[274,275],[275,276],[276,277],[277,278],[278,279],[279,280],[0,280],[280,281],[281,282],[282,283],[283,284],[284,285],[285,286],[286,287],[287,288],[0,288],[11,2],[12,268],[13,269],[14,270],[268,12],[269,13],[270,14]];
+  for (const [a, b] of connections) {
+    if (a < faceLandmarks.length && b < faceLandmarks.length) {
+      const pa = toScreen(faceLandmarks[a], w, h);
+      const pb = toScreen(faceLandmarks[b], w, h);
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+    }
+  }
+}
+
+function drawFaceContourEffect(ctx, video, w, h) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const outline = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109,10];
+  ctx.strokeStyle = 'rgba(255,100,100,0.8)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  outline.forEach((idx, i) => {
+    if (idx < faceLandmarks.length) {
+      const p = toScreen(faceLandmarks[idx], w, h);
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+  });
+  ctx.closePath(); ctx.stroke();
+  const leftEye = [33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246];
+  const rightEye = [362,382,381,380,374,373,390,249,263,466,388,387,386,385,384,398];
+  ctx.strokeStyle = 'rgba(0,255,200,0.8)'; ctx.lineWidth = 2;
+  [leftEye, rightEye].forEach(eye => {
+    ctx.beginPath();
+    eye.forEach((idx, i) => { if (idx < faceLandmarks.length) { const p = toScreen(faceLandmarks[idx], w, h); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); } });
+    ctx.closePath(); ctx.stroke();
+  });
+  const mouthOuter = [61,146,91,181,84,17,314,405,321,375,291,409,270,269,267,0,37,39,40,185,61];
+  ctx.strokeStyle = 'rgba(255,255,0,0.8)'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  mouthOuter.forEach((idx, i) => { if (idx < faceLandmarks.length) { const p = toScreen(faceLandmarks[idx], w, h); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); } });
+  ctx.closePath(); ctx.stroke();
+}
+
+function drawFaceGlowEffect(ctx, video, w, h) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const t = Date.now() / 1000;
+  for (let i = 0; i < faceLandmarks.length; i += 2) {
+    const p = toScreen(faceLandmarks[i], w, h);
+    const hue = (i * 2 + t * 50) % 360;
+    const r = 3 + Math.sin(t * 3 + i * 0.1) * 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'hsla(' + hue + ',100%,70%,0.8)';
+    ctx.fill();
+    ctx.shadowColor = 'hsla(' + hue + ',100%,70%,0.5)';
+    ctx.shadowBlur = 10;
+  }
+  ctx.shadowBlur = 0;
+}
+
+function drawFaceDotsEffect(ctx, video, w, h) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  for (let i = 0; i < faceLandmarks.length; i++) {
+    const p = toScreen(faceLandmarks[i], w, h);
+    ctx.fillStyle = '#00ff88';
+    ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
+  }
+}
+
+// ===== ACCESSORIES =====
+function drawAccessory(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const nose = toScreen(faceLandmarks[1], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const eyeDist = Math.sqrt((eyeR.x - eyeL.x) ** 2 + (eyeR.y - eyeL.y) ** 2);
+  const eyeMid = { x: (eyeL.x + eyeR.x) / 2, y: (eyeL.y + eyeR.y) / 2 };
+  const faceWidth = eyeDist * 2.5;
+  const faceHeight = Math.sqrt((chin.y - forehead.y) ** 2 + (chin.x - forehead.x) ** 2);
+  const angle = Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x);
+  ctx.save(); ctx.translate(eyeMid.x, eyeMid.y); ctx.rotate(angle);
+  switch(type) {
+    case 'glasses':
+      ctx.strokeStyle = '#444'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(-eyeDist * 0.4, 0, eyeDist * 0.55, eyeDist * 0.35, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(eyeDist * 0.4, 0, eyeDist * 0.55, eyeDist * 0.35, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-eyeDist * 0.05, 0); ctx.lineTo(eyeDist * 0.05, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-eyeDist * 0.95, 0); ctx.lineTo(-eyeDist * 1.4, -eyeDist * 0.1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(eyeDist * 0.95, 0); ctx.lineTo(eyeDist * 1.4, -eyeDist * 0.1); ctx.stroke();
+      break;
+    case 'sunglasses':
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.beginPath(); ctx.ellipse(-eyeDist * 0.4, 0, eyeDist * 0.55, eyeDist * 0.38, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(eyeDist * 0.4, 0, eyeDist * 0.55, eyeDist * 0.38, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(-eyeDist * 0.4, 0, eyeDist * 0.55, eyeDist * 0.38, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(eyeDist * 0.4, 0, eyeDist * 0.55, eyeDist * 0.38, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-eyeDist * 0.05, 0); ctx.lineTo(eyeDist * 0.05, 0); ctx.stroke();
+      break;
+    case 'heart_glasses':
+      ctx.fillStyle = 'rgba(255,50,50,0.6)'; ctx.strokeStyle = '#c00'; ctx.lineWidth = 2;
+      [-1, 1].forEach(side => {
+        ctx.save(); ctx.translate(side * eyeDist * 0.4, 0); ctx.scale(eyeDist * 0.007, eyeDist * 0.007);
+        ctx.beginPath(); ctx.moveTo(0, 8); ctx.bezierCurveTo(-20, -10, -35, 5, 0, 30); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 8); ctx.bezierCurveTo(20, -10, 35, 5, 0, 30); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      });
+      break;
+    case 'mask':
+      ctx.fillStyle = 'rgba(30,30,30,0.85)'; ctx.strokeStyle = '#gold'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-eyeDist * 1.2, -eyeDist * 0.1);
+      ctx.bezierCurveTo(-eyeDist * 0.8, -eyeDist * 0.7, eyeDist * 0.8, -eyeDist * 0.7, eyeDist * 1.2, -eyeDist * 0.1);
+      ctx.bezierCurveTo(eyeDist * 0.8, eyeDist * 0.4, -eyeDist * 0.8, eyeDist * 0.4, -eyeDist * 1.2, -eyeDist * 0.1);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(-eyeDist * 0.4, 0, eyeDist * 0.25, eyeDist * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(eyeDist * 0.4, 0, eyeDist * 0.25, eyeDist * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'crown':
+      ctx.fillStyle = '#FFD700'; ctx.strokeStyle = '#DAA520'; ctx.lineWidth = 2;
+      const cw = eyeDist * 1.6, ch = eyeDist * 0.6;
+      ctx.beginPath();
+      ctx.moveTo(-cw/2, 0); ctx.lineTo(-cw/2 + cw*0.15, -ch);
+      ctx.lineTo(-cw/2 + cw*0.3, -ch*0.3); ctx.lineTo(-cw/2 + cw*0.5, -ch*1.1);
+      ctx.lineTo(-cw/2 + cw*0.7, -ch*0.3); ctx.lineTo(-cw/2 + cw*0.85, -ch);
+      ctx.lineTo(cw/2, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ff0000';
+      ctx.beginPath(); ctx.arc(-cw/2 + cw*0.15, -ch*0.8, 3, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-cw/2 + cw*0.5, -ch*0.9, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-cw/2 + cw*0.85, -ch*0.8, 3, 0, Math.PI*2); ctx.fill();
+      break;
+    case 'party_hat':
+      ctx.fillStyle = '#ff4444';
+      ctx.beginPath(); ctx.moveTo(0, -faceHeight * 0.5); ctx.lineTo(-eyeDist * 0.7, eyeDist * 0.2); ctx.lineTo(eyeDist * 0.7, eyeDist * 0.2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath(); ctx.ellipse(0, -faceHeight * 0.5, 6, 6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2;
+      ctx.setLineDash([8, 4]);
+      ctx.beginPath(); ctx.moveTo(-eyeDist*0.3, -eyeDist*0.1); ctx.lineTo(-eyeDist*0.1, -faceHeight*0.35); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(eyeDist*0.3, -eyeDist*0.1); ctx.lineTo(eyeDist*0.1, -faceHeight*0.35); ctx.stroke();
+      ctx.setLineDash([]);
+      break;
+    case 'witch_hat':
+      ctx.fillStyle = '#1a0a2e';
+      ctx.beginPath(); ctx.moveTo(0, -faceHeight*0.55); ctx.lineTo(-eyeDist*0.9, eyeDist*0.1); ctx.lineTo(eyeDist*0.9, eyeDist*0.1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2a1a3e';
+      ctx.beginPath(); ctx.ellipse(0, eyeDist*0.1, eyeDist*1.1, eyeDist*0.15, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(-eyeDist*0.3, -eyeDist*0.05, eyeDist*0.6, 5);
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath(); ctx.arc(eyeDist*0.15, -eyeDist*0.025, 3, 0, Math.PI*2); ctx.fill();
+      break;
+    case 'halo':
+      const haloY = -eyeDist * 0.8;
+      ctx.strokeStyle = 'rgba(255,255,100,0.8)'; ctx.lineWidth = 4;
+      ctx.shadowColor = 'rgba(255,255,100,0.6)'; ctx.shadowBlur = 15;
+      ctx.beginPath(); ctx.ellipse(0, haloY, eyeDist * 0.9, eyeDist * 0.2, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.shadowBlur = 0;
+      break;
+    case 'horns':
+      ctx.fillStyle = '#8B0000';
+      ctx.beginPath(); ctx.moveTo(-eyeDist*0.7, -eyeDist*0.1); ctx.lineTo(-eyeDist*0.5, -eyeDist*1.0); ctx.lineTo(-eyeDist*0.3, -eyeDist*0.1); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(eyeDist*0.7, -eyeDist*0.1); ctx.lineTo(eyeDist*0.5, -eyeDist*1.0); ctx.lineTo(eyeDist*0.3, -eyeDist*0.1); ctx.closePath(); ctx.fill();
+      break;
+    case 'bunny_ears':
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#ffb6c1'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(-eyeDist*0.4, -faceHeight*0.45, eyeDist*0.15, eyeDist*0.55, -0.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(eyeDist*0.4, -faceHeight*0.45, eyeDist*0.15, eyeDist*0.55, 0.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffb6c1';
+      ctx.beginPath(); ctx.ellipse(-eyeDist*0.4, -faceHeight*0.45, eyeDist*0.08, eyeDist*0.4, -0.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(eyeDist*0.4, -faceHeight*0.45, eyeDist*0.08, eyeDist*0.4, 0.2, 0, Math.PI*2); ctx.fill();
+      break;
+    case 'cat_ears':
+      ctx.fillStyle = '#333';
+      ctx.beginPath(); ctx.moveTo(-eyeDist*0.8, -eyeDist*0.1); ctx.lineTo(-eyeDist*0.5, -faceHeight*0.42); ctx.lineTo(-eyeDist*0.1, -eyeDist*0.1); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(eyeDist*0.8, -eyeDist*0.1); ctx.lineTo(eyeDist*0.5, -faceHeight*0.42); ctx.lineTo(eyeDist*0.1, -eyeDist*0.1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ff69b4';
+      ctx.beginPath(); ctx.moveTo(-eyeDist*0.65, -eyeDist*0.15); ctx.lineTo(-eyeDist*0.5, -faceHeight*0.32); ctx.lineTo(-eyeDist*0.25, -eyeDist*0.15); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(eyeDist*0.65, -eyeDist*0.15); ctx.lineTo(eyeDist*0.5, -faceHeight*0.32); ctx.lineTo(eyeDist*0.25, -eyeDist*0.15); ctx.closePath(); ctx.fill();
+      break;
+    case 'dog_ears':
+      ctx.fillStyle = '#8B4513';
+      ctx.beginPath(); ctx.ellipse(-eyeDist*0.85, -eyeDist*0.05, eyeDist*0.25, eyeDist*0.5, -0.6, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(eyeDist*0.85, -eyeDist*0.05, eyeDist*0.25, eyeDist*0.5, 0.6, 0, Math.PI*2); ctx.fill();
+      break;
+    case 'antlers':
+      ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      [-1, 1].forEach(side => {
+        ctx.beginPath();
+        ctx.moveTo(side * eyeDist * 0.3, -eyeDist * 0.1);
+        ctx.lineTo(side * eyeDist * 0.3, -faceHeight * 0.3);
+        ctx.lineTo(side * eyeDist * 0.1, -faceHeight * 0.4);
+        ctx.moveTo(side * eyeDist * 0.3, -faceHeight * 0.25);
+        ctx.lineTo(side * eyeDist * 0.55, -faceHeight * 0.35);
+        ctx.stroke();
+      });
+      ctx.lineCap = 'butt';
+      break;
+    case 'headband':
+      ctx.strokeStyle = '#ff69b4'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(0, 0, eyeDist * 1.1, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = '#ff69b4';
+      [-eyeDist*0.6, 0, eyeDist*0.6].forEach(x => {
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2;
+          const r = eyeDist * 0.12;
+          const px = x + Math.cos(a) * r;
+          const py = -eyeDist * 0.95 + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath(); ctx.fill();
+      });
+      break;
+    case 'bow':
+      ctx.fillStyle = '#ff1493';
+      ctx.beginPath(); ctx.moveTo(0, -faceHeight*0.38); ctx.bezierCurveTo(-eyeDist*0.3, -faceHeight*0.5, -eyeDist*0.3, -faceHeight*0.25, 0, -faceHeight*0.38); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0, -faceHeight*0.38); ctx.bezierCurveTo(eyeDist*0.3, -faceHeight*0.5, eyeDist*0.3, -faceHeight*0.25, 0, -faceHeight*0.38); ctx.fill();
+      ctx.fillStyle = '#ff69b4';
+      ctx.beginPath(); ctx.arc(0, -faceHeight*0.38, 4, 0, Math.PI*2); ctx.fill();
+      break;
+  }
+  ctx.restore();
+}
+
+// ===== FACE PAINT =====
+function drawFacePaint(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const nose = toScreen(faceLandmarks[1], w, h);
+  const mouthL = toScreen(faceLandmarks[61], w, h);
+  const mouthR = toScreen(faceLandmarks[291], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const eyeDist = Math.sqrt((eyeR.x - eyeL.x) ** 2 + (eyeR.y - eyeL.y) ** 2);
+  const eyeMid = { x: (eyeL.x + eyeR.x) / 2, y: (eyeL.y + eyeR.y) / 2 };
+  ctx.save();
+  switch(type) {
+    case 'war_paint':
+      ctx.fillStyle = 'rgba(200,30,30,0.6)';
+      ctx.fillRect(eyeL.x - eyeDist*0.5, eyeL.y - eyeDist*0.15, eyeDist*0.4, eyeDist*0.08);
+      ctx.fillRect(eyeL.x - eyeDist*0.5, eyeL.y + eyeDist*0.05, eyeDist*0.4, eyeDist*0.08);
+      ctx.fillRect(eyeR.x + eyeDist*0.1, eyeR.y - eyeDist*0.15, eyeDist*0.4, eyeDist*0.08);
+      ctx.fillRect(eyeR.x + eyeDist*0.1, eyeR.y + eyeDist*0.05, eyeDist*0.4, eyeDist*0.08);
+      break;
+    case 'clown_makeup':
+      ctx.fillStyle = 'rgba(255,0,0,0.7)';
+      ctx.beginPath(); ctx.arc(nose.x, nose.y, eyeDist*0.15, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,100,150,0.5)';
+      ctx.beginPath(); ctx.arc(eyeL.x, eyeL.y - eyeDist*0.25, eyeDist*0.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(eyeR.x, eyeR.y - eyeDist*0.25, eyeDist*0.2, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,0,0,0.7)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc((mouthL.x+mouthR.x)/2, (mouthL.y+mouthR.y)/2 + eyeDist*0.3, eyeDist*0.35, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = 'white';
+      ctx.beginPath(); ctx.arc(eyeMid.x, forehead.y + eyeDist*0.2, eyeDist*0.12, 0, Math.PI*2); ctx.fill();
+      break;
+    case 'cat_face':
+      ctx.fillStyle = 'rgba(255,105,180,0.5)';
+      ctx.beginPath(); ctx.arc(nose.x, nose.y, eyeDist*0.1, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(50,50,50,0.6)'; ctx.lineWidth = 2;
+      const whiskerLen = eyeDist * 0.8;
+      [-1, 1].forEach(side => {
+        const wx = nose.x + side * eyeDist * 0.1;
+        const wy = nose.y + eyeDist * 0.1;
+        ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + side * whiskerLen, wy - eyeDist*0.15); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + side * whiskerLen, wy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + side * whiskerLen, wy + eyeDist*0.15); ctx.stroke();
+      });
+      break;
+    case 'skull_face':
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath(); ctx.arc(eyeL.x, eyeL.y, eyeDist*0.25, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(eyeR.x, eyeR.y, eyeDist*0.25, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.beginPath(); ctx.arc(eyeL.x, eyeL.y, eyeDist*0.18, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(eyeR.x, eyeR.y, eyeDist*0.18, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(nose.x, nose.y + eyeDist*0.05, eyeDist*0.08, eyeDist*0.1, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(mouthL.x, mouthL.y + eyeDist*0.1);
+      ctx.lineTo(mouthR.x, mouthR.y + eyeDist*0.1); ctx.stroke();
+      for (let i = 0; i < 6; i++) {
+        const x = mouthL.x + (mouthR.x - mouthL.x) * (i / 5);
+        ctx.beginPath(); ctx.moveTo(x, mouthL.y + eyeDist*0.05); ctx.lineTo(x, mouthL.y + eyeDist*0.2); ctx.stroke();
+      }
+      break;
+    case 'spider_web':
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+      const cx = eyeMid.x, cy = forehead.y - eyeDist*0.1;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a)*eyeDist*1.2, cy + Math.sin(a)*eyeDist*1.2); ctx.stroke();
+      }
+      [0.3, 0.6, 0.9].forEach(r => {
+        ctx.beginPath();
+        for (let i = 0; i <= 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          const px = cx + Math.cos(a) * eyeDist * r;
+          const py = cy + Math.sin(a) * eyeDist * r;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      });
+      break;
+    case 'butterfly_mask':
+      ctx.fillStyle = 'rgba(100,0,200,0.4)';
+      ctx.beginPath();
+      ctx.moveTo(eyeMid.x, eyeMid.y);
+      ctx.bezierCurveTo(-eyeDist*0.3, -eyeDist*0.8, -eyeDist*1.2, -eyeDist*0.2, eyeMid.x, eyeMid.y + eyeDist*0.2);
+      ctx.bezierCurveTo(eyeDist*0.3, -eyeDist*0.8, eyeDist*1.2, -eyeDist*0.2, eyeMid.x, eyeMid.y);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(150,50,255,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+      break;
+  }
+  ctx.restore();
+}
+
+// ===== FACIAL HAIR =====
+function drawFacialHair(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const noseTip = toScreen(faceLandmarks[2], w, h);
+  const mouthL = toScreen(faceLandmarks[61], w, h);
+  const mouthR = toScreen(faceLandmarks[291], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const mouthMid = { x: (mouthL.x + mouthR.x) / 2, y: (mouthL.y + mouthR.y) / 2 };
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const eyeDist = Math.sqrt((eyeR.x - eyeL.x) ** 2 + (eyeR.y - eyeL.y) ** 2);
+  ctx.fillStyle = 'rgba(60,30,10,0.7)';
+  ctx.strokeStyle = 'rgba(40,20,5,0.8)'; ctx.lineWidth = 1;
+  switch(type) {
+    case 'mustache':
+      ctx.beginPath();
+      ctx.moveTo(noseTip.x, noseTip.y + eyeDist*0.05);
+      ctx.bezierCurveTo(noseTip.x - eyeDist*0.3, noseTip.y - eyeDist*0.1, mouthL.x - eyeDist*0.2, mouthL.y - eyeDist*0.15, mouthL.x - eyeDist*0.4, mouthL.y + eyeDist*0.05);
+      ctx.lineTo(noseTip.x, noseTip.y + eyeDist*0.15);
+      ctx.lineTo(mouthR.x + eyeDist*0.4, mouthR.y + eyeDist*0.05);
+      ctx.bezierCurveTo(mouthR.x + eyeDist*0.2, mouthR.y - eyeDist*0.15, noseTip.x + eyeDist*0.3, noseTip.y - eyeDist*0.1, noseTip.x, noseTip.y + eyeDist*0.05);
+      ctx.fill(); ctx.stroke();
+      break;
+    case 'beard':
+      ctx.beginPath();
+      ctx.moveTo(mouthL.x - eyeDist*0.1, mouthL.y);
+      ctx.bezierCurveTo(mouthL.x - eyeDist*0.4, mouthL.y + eyeDist*0.3, chin.x - eyeDist*0.5, chin.y - eyeDist*0.2, chin.x, chin.y + eyeDist*0.15);
+      ctx.bezierCurveTo(chin.x + eyeDist*0.5, chin.y - eyeDist*0.2, mouthR.x + eyeDist*0.4, mouthR.y + eyeDist*0.3, mouthR.x + eyeDist*0.1, mouthR.y);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      break;
+    case 'goatee':
+      ctx.beginPath();
+      ctx.ellipse(mouthMid.x, mouthMid.y + eyeDist*0.4, eyeDist*0.25, eyeDist*0.3, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      break;
+    case 'handlebar':
+      ctx.beginPath();
+      ctx.moveTo(noseTip.x, noseTip.y + eyeDist*0.05);
+      ctx.bezierCurveTo(noseTip.x - eyeDist*0.4, noseTip.y - eyeDist*0.15, mouthL.x - eyeDist*0.3, mouthL.y - eyeDist*0.2, mouthL.x - eyeDist*0.6, mouthL.y - eyeDist*0.15);
+      ctx.bezierCurveTo(mouthL.x - eyeDist*0.5, mouthL.y - eyeDist*0.05, mouthL.x - eyeDist*0.35, mouthL.y - eyeDist*0.1, mouthL.x - eyeDist*0.2, mouthL.y - eyeDist*0.05);
+      ctx.lineTo(noseTip.x, noseTip.y + eyeDist*0.12);
+      ctx.lineTo(mouthR.x + eyeDist*0.2, mouthR.y - eyeDist*0.05);
+      ctx.bezierCurveTo(mouthR.x + eyeDist*0.35, mouthR.y - eyeDist*0.1, mouthR.x + eyeDist*0.5, mouthR.y - eyeDist*0.05, mouthR.x + eyeDist*0.6, mouthR.y - eyeDist*0.15);
+      ctx.bezierCurveTo(mouthR.x + eyeDist*0.3, mouthR.y - eyeDist*0.2, noseTip.x + eyeDist*0.4, noseTip.y - eyeDist*0.15, noseTip.x, noseTip.y + eyeDist*0.05);
+      ctx.fill(); ctx.stroke();
+      break;
+  }
+}
+
+// ===== FACE DEFORM =====
+function drawFaceDeform(ctx, video, w, h, type) {
+  if (!faceLandmarks) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore(); return; }
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const nose = toScreen(faceLandmarks[1], w, h);
+  const mouthL = toScreen(faceLandmarks[61], w, h);
+  const mouthR = toScreen(faceLandmarks[291], w, h);
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const eyeMid = { x: (eyeL.x + eyeR.x) / 2, y: (eyeL.y + eyeR.y) / 2 };
+  const eyeDist = Math.sqrt((eyeR.x - eyeL.x) ** 2 + (eyeR.y - eyeL.y) ** 2);
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  const savedCtx = ctx;
+  switch(type) {
+    case 'big_eyes':
+      [{ center: eyeL }, { center: eyeR }].forEach(({ center }) => {
+        const r = eyeDist * 0.5;
+        const srcCanvas = document.createElement('canvas'); srcCanvas.width = r*2; srcCanvas.height = r*2;
+        const srcCtx = srcCanvas.getContext('2d');
+        try {
+          srcCtx.drawImage(video, (w-center.x-r)/video.videoWidth*w, (center.y-r)/video.videoHeight*h, r*2/video.videoWidth*w, r*2/video.videoHeight*h, 0, 0, r*2, r*2);
+        } catch(e) {}
+        savedCtx.save(); savedCtx.beginPath(); savedCtx.arc(center.x, center.y, r*1.3, 0, Math.PI*2); savedCtx.clip();
+        savedCtx.drawImage(srcCanvas, center.x - r*1.3, center.y - r*1.3, r*2.6, r*2.6);
+        savedCtx.restore();
+      });
+      break;
+    case 'tiny_eyes':
+      [{ center: eyeL }, { center: eyeR }].forEach(({ center }) => {
+        const r = eyeDist * 0.3;
+        const srcCanvas = document.createElement('canvas'); srcCanvas.width = r*2; srcCanvas.height = r*2;
+        const srcCtx = srcCanvas.getContext('2d');
+        try {
+          srcCtx.drawImage(video, (w-center.x-r)/video.videoWidth*w, (center.y-r)/video.videoHeight*h, r*2/video.videoWidth*w, r*2/video.videoHeight*h, 0, 0, r*2, r*2);
+        } catch(e) {}
+        savedCtx.save(); savedCtx.beginPath(); savedCtx.arc(center.x, center.y, r*0.5, 0, Math.PI*2); savedCtx.clip();
+        savedCtx.drawImage(srcCanvas, center.x - r*0.5, center.y - r*0.5, r, r);
+        savedCtx.restore();
+      });
+      break;
+    case 'big_mouth': {
+      const mouthMid = { x: (mouthL.x + mouthR.x)/2, y: (mouthL.y + mouthR.y)/2 };
+      const r = eyeDist * 0.8;
+      const srcCanvas = document.createElement('canvas'); srcCanvas.width = r*2; srcCanvas.height = r*2;
+      const srcCtx = srcCanvas.getContext('2d');
+      try { srcCtx.drawImage(video, (w-mouthMid.x-r)/video.videoWidth*w, (mouthMid.y-r)/video.videoHeight*h, r*2/video.videoWidth*w, r*2/video.videoHeight*h, 0, 0, r*2, r*2); } catch(e) {}
+      savedCtx.save(); savedCtx.beginPath(); savedCtx.ellipse(mouthMid.x, mouthMid.y, r*1.5, r*1.0, 0, 0, Math.PI*2); savedCtx.clip();
+      savedCtx.drawImage(srcCanvas, mouthMid.x - r*1.5, mouthMid.y - r*1.0, r*3, r*2);
+      savedCtx.restore();
+      break;
+    }
+    case 'tiny_mouth': {
+      const mouthMid = { x: (mouthL.x + mouthR.x)/2, y: (mouthL.y + mouthR.y)/2 };
+      const r = eyeDist * 0.4;
+      const srcCanvas = document.createElement('canvas'); srcCanvas.width = r*2; srcCanvas.height = r*2;
+      const srcCtx = srcCanvas.getContext('2d');
+      try { srcCtx.drawImage(video, (w-mouthMid.x-r)/video.videoWidth*w, (mouthMid.y-r)/video.videoHeight*h, r*2/video.videoWidth*w, r*2/video.videoHeight*h, 0, 0, r*2, r*2); } catch(e) {}
+      savedCtx.save(); savedCtx.beginPath(); savedCtx.arc(mouthMid.x, mouthMid.y, r*0.4, 0, Math.PI*2); savedCtx.clip();
+      savedCtx.drawImage(srcCanvas, mouthMid.x - r*0.4, mouthMid.y - r*0.4, r*0.8, r*0.8);
+      savedCtx.restore();
+      break;
+    }
+    case 'big_nose': {
+      const r = eyeDist * 0.5;
+      const srcCanvas = document.createElement('canvas'); srcCanvas.width = r*2; srcCanvas.height = r*2;
+      const srcCtx = srcCanvas.getContext('2d');
+      try { srcCtx.drawImage(video, (w-nose.x-r)/video.videoWidth*w, (nose.y-r)/video.videoHeight*h, r*2/video.videoWidth*w, r*2/video.videoHeight*h, 0, 0, r*2, r*2); } catch(e) {}
+      savedCtx.save(); savedCtx.beginPath(); savedCtx.arc(nose.x, nose.y, r*1.5, 0, Math.PI*2); savedCtx.clip();
+      savedCtx.drawImage(srcCanvas, nose.x - r*1.5, nose.y - r*1.5, r*3, r*3);
+      savedCtx.restore();
+      break;
+    }
+    case 'tiny_nose': {
+      const r = eyeDist * 0.3;
+      const srcCanvas = document.createElement('canvas'); srcCanvas.width = r*2; srcCanvas.height = r*2;
+      const srcCtx = srcCanvas.getContext('2d');
+      try { srcCtx.drawImage(video, (w-nose.x-r)/video.videoWidth*w, (nose.y-r)/video.videoHeight*h, r*2/video.videoWidth*w, r*2/video.videoHeight*h, 0, 0, r*2, r*2); } catch(e) {}
+      savedCtx.save(); savedCtx.beginPath(); savedCtx.arc(nose.x, nose.y, r*0.4, 0, Math.PI*2); savedCtx.clip();
+      savedCtx.drawImage(srcCanvas, nose.x - r*0.4, nose.y - r*0.4, r*0.8, r*0.8);
+      savedCtx.restore();
+      break;
+    }
+    case 'long_face': {
+      savedCtx.save();
+      savedCtx.translate(0, -eyeDist * 0.3);
+      savedCtx.scale(1, 1.3);
+      savedCtx.translate(0, eyeDist * 0.2);
+      savedCtx.scale(-1, 1); savedCtx.drawImage(video, -w, 0, w, h);
+      savedCtx.restore();
+      break;
+    }
+    case 'wide_face': {
+      savedCtx.save();
+      savedCtx.translate(w/2, h/2);
+      savedCtx.scale(1.25, 1);
+      savedCtx.translate(-w/2, -h/2);
+      savedCtx.scale(-1, 1); savedCtx.drawImage(video, -w, 0, w, h);
+      savedCtx.restore();
+      break;
+    }
+    case 'pinch_face': {
+      savedCtx.save();
+      savedCtx.translate(eyeMid.x, eyeMid.y);
+      savedCtx.scale(0.8, 0.8);
+      savedCtx.translate(-eyeMid.x, -eyeMid.y);
+      savedCtx.scale(-1, 1); savedCtx.drawImage(video, -w, 0, w, h);
+      savedCtx.restore();
+      break;
+    }
+    case 'bulge_face': {
+      savedCtx.save();
+      savedCtx.translate(eyeMid.x, eyeMid.y);
+      savedCtx.scale(1.2, 1.2);
+      savedCtx.translate(-eyeMid.x, -eyeMid.y);
+      savedCtx.scale(-1, 1); savedCtx.drawImage(video, -w, 0, w, h);
+      savedCtx.restore();
+      break;
+    }
+    case 'alien_head': {
+      savedCtx.save();
+      savedCtx.translate(w/2, h/2);
+      savedCtx.scale(0.7, 1.4);
+      savedCtx.translate(-w/2, -h/2);
+      savedCtx.scale(-1, 1); savedCtx.drawImage(video, -w, 0, w, h);
+      savedCtx.restore();
+      savedCtx.fillStyle = 'rgba(0,255,100,0.3)';
+      savedCtx.beginPath(); savedCtx.ellipse(eyeL.x, eyeL.y, eyeDist*0.35, eyeDist*0.25, 0, 0, Math.PI*2); savedCtx.fill();
+      savedCtx.beginPath(); savedCtx.ellipse(eyeR.x, eyeR.y, eyeDist*0.35, eyeDist*0.25, 0, 0, Math.PI*2); savedCtx.fill();
+      break;
+    }
+    case 'fish_eye': {
+      savedCtx.save();
+      const maxR = Math.max(w, h) * 0.7;
+      const gradient = savedCtx.createRadialGradient(eyeMid.x, eyeMid.y, 0, eyeMid.x, eyeMid.y, maxR);
+      gradient.addColorStop(0, 'transparent');
+      gradient.addColorStop(0.5, 'transparent');
+      gradient.addColorStop(0.7, 'rgba(0,0,0,0.3)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
+      savedCtx.scale(-1, 1); savedCtx.drawImage(video, -w, 0, w, h);
+      savedCtx.restore();
+      savedCtx.fillStyle = gradient;
+      savedCtx.fillRect(0, 0, w, h);
+      savedCtx.save();
+      savedCtx.translate(eyeMid.x, eyeMid.y);
+      savedCtx.scale(1.3, 1.3);
+      savedCtx.translate(-eyeMid.x, -eyeMid.y);
+      const srcR = eyeDist * 0.8;
+      try {
+        savedCtx.beginPath(); savedCtx.arc(eyeMid.x, eyeMid.y, srcR, 0, Math.PI*2); savedCtx.clip();
+        savedCtx.scale(-1, 1); savedCtx.drawImage(video, -w, 0, w, h);
+      } catch(e) {}
+      savedCtx.restore();
+      break;
+    }
+  }
+}
+
+// ===== EYE FX =====
+function drawEyeFX(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const eyeDist = Math.sqrt((eyeR.x - eyeL.x) ** 2 + (eyeR.y - eyeL.y) ** 2);
+  const t = Date.now() / 1000;
+  switch(type) {
+    case 'laser_eyes':
+      ctx.strokeStyle = 'rgba(255,0,0,0.8)'; ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(255,0,0,0.8)'; ctx.shadowBlur = 15;
+      [eyeL, eyeR].forEach(eye => {
+        ctx.beginPath(); ctx.moveTo(eye.x, eye.y); ctx.lineTo(eye.x, 0); ctx.stroke();
+      });
+      ctx.shadowBlur = 0;
+      break;
+    case 'glow_eyes':
+      [eyeL, eyeR].forEach(eye => {
+        const g = ctx.createRadialGradient(eye.x, eye.y, 0, eye.x, eye.y, eyeDist*0.3);
+        g.addColorStop(0, 'rgba(0,255,200,0.9)');
+        g.addColorStop(0.5, 'rgba(0,255,200,0.3)');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(eye.x, eye.y, eyeDist*0.3, 0, Math.PI*2); ctx.fill();
+      });
+      break;
+    case 'fire_eyes':
+      [eyeL, eyeR].forEach(eye => {
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2 + t * 2;
+          const r = eyeDist * 0.2 + Math.sin(t * 5 + i) * eyeDist * 0.05;
+          const flameR = r + eyeDist * 0.15;
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255,100,0,0.7)' : 'rgba(255,200,0,0.5)';
+          ctx.beginPath(); ctx.arc(eye.x + Math.cos(angle)*r*0.3, eye.y + Math.sin(angle)*r*0.3 - eyeDist*0.1, flameR*0.5, 0, Math.PI*2); ctx.fill();
+        }
+      });
+      break;
+    case 'rainbow_eyes':
+      [eyeL, eyeR].forEach(eye => {
+        const g = ctx.createRadialGradient(eye.x, eye.y, 0, eye.x, eye.y, eyeDist*0.25);
+        const hue = (t * 60) % 360;
+        g.addColorStop(0, 'hsla(' + hue + ',100%,70%,0.8)');
+        g.addColorStop(0.5, 'hsla(' + ((hue+120)%360) + ',100%,70%,0.5)');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(eye.x, eye.y, eyeDist*0.25, 0, Math.PI*2); ctx.fill();
+      });
+      break;
+    case 'x_eyes':
+      ctx.strokeStyle = 'rgba(255,0,0,0.8)'; ctx.lineWidth = 4;
+      [eyeL, eyeR].forEach(eye => {
+        const s = eyeDist * 0.2;
+        ctx.beginPath(); ctx.moveTo(eye.x - s, eye.y - s); ctx.lineTo(eye.x + s, eye.y + s); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(eye.x + s, eye.y - s); ctx.lineTo(eye.x - s, eye.y + s); ctx.stroke();
+      });
+      break;
+  }
+}
+
+// ===== NOSE FX =====
+function drawNoseFX(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const nose = toScreen(faceLandmarks[2], w, h);
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const eyeDist = Math.sqrt((eyeR.x - eyeL.x) ** 2 + (eyeR.y - eyeL.y) ** 2);
+  switch(type) {
+    case 'clown_nose':
+      ctx.fillStyle = 'rgba(255,0,0,0.85)';
+      ctx.beginPath(); ctx.arc(nose.x, nose.y, eyeDist*0.18, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,100,100,0.5)';
+      ctx.beginPath(); ctx.arc(nose.x - eyeDist*0.04, nose.y - eyeDist*0.04, eyeDist*0.06, 0, Math.PI*2); ctx.fill();
+      break;
+    case 'rudolph_nose': {
+      const t = Date.now() / 500;
+      const glow = 0.5 + Math.sin(t) * 0.3;
+      ctx.shadowColor = 'rgba(255,0,0,' + glow + ')';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = 'rgba(200,0,0,0.85)';
+      ctx.beginPath(); ctx.arc(nose.x, nose.y, eyeDist*0.16, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,150,150,0.5)';
+      ctx.beginPath(); ctx.arc(nose.x - eyeDist*0.03, nose.y - eyeDist*0.03, eyeDist*0.05, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      break;
+    }
+    case 'pig_nose':
+      ctx.fillStyle = 'rgba(255,180,180,0.85)';
+      ctx.beginPath(); ctx.ellipse(nose.x, nose.y, eyeDist*0.2, eyeDist*0.14, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(100,50,50,0.6)';
+      ctx.beginPath(); ctx.ellipse(nose.x - eyeDist*0.07, nose.y, eyeDist*0.05, eyeDist*0.07, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(nose.x + eyeDist*0.07, nose.y, eyeDist*0.05, eyeDist*0.07, 0, 0, Math.PI*2); ctx.fill();
+      break;
+  }
+}
+
+// ===== HEAD FX =====
+function drawHeadFX(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  if (!faceLandmarks) return;
+  const forehead = toScreen(faceLandmarks[10], w, h);
+  const eyeL = toScreen(faceLandmarks[33], w, h);
+  const eyeR = toScreen(faceLandmarks[263], w, h);
+  const chin = toScreen(faceLandmarks[152], w, h);
+  const eyeDist = Math.sqrt((eyeR.x - eyeL.x) ** 2 + (eyeR.y - eyeL.y) ** 2);
+  const faceH = Math.sqrt((chin.y - forehead.y) ** 2);
+  const t = Date.now() / 1000;
+  switch(type) {
+    case 'fire_head':
+      for (let i = 0; i < 20; i++) {
+        const x = forehead.x + (Math.random() - 0.5) * eyeDist * 2;
+        const y = forehead.y - Math.random() * faceH * 0.4;
+        const r = 3 + Math.random() * 8;
+        const hue = Math.random() > 0.5 ? 20 : 40;
+        ctx.fillStyle = 'hsla(' + hue + ',100%,' + (50 + Math.random()*30) + '%,' + (0.4 + Math.random()*0.4) + ')';
+        ctx.beginPath(); ctx.arc(x + Math.sin(t*3+i)*10, y, r, 0, Math.PI*2); ctx.fill();
+      }
+      break;
+    case 'electric_head':
+      ctx.strokeStyle = 'rgba(100,150,255,0.8)'; ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + t;
+        ctx.beginPath(); ctx.moveTo(forehead.x, forehead.y);
+        let px = forehead.x, py = forehead.y;
+        for (let j = 0; j < 5; j++) {
+          px += Math.cos(a + j*0.5) * eyeDist * 0.3 + (Math.random()-0.5) * 20;
+          py -= eyeDist * 0.2 + Math.random() * 10;
+          ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+      break;
+    case 'aura':
+      const g = ctx.createRadialGradient(forehead.x, (forehead.y+chin.y)/2, eyeDist*0.3, forehead.x, (forehead.y+chin.y)/2, eyeDist*2);
+      const hue = (t * 30) % 360;
+      g.addColorStop(0, 'hsla(' + hue + ',80%,60%,0.3)');
+      g.addColorStop(0.5, 'hsla(' + ((hue+60)%360) + ',80%,60%,0.15)');
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      break;
+  }
+}
+
+// ===== PARTICLES =====
+const particles = {};
+function getParticles(type, w, h) {
+  if (!particles[type] || particles[type].length === 0) {
+    particles[type] = [];
+    const count = type === 'snow' || type === 'rain' ? 60 : 25;
+    for (let i = 0; i < count; i++) {
+      particles[type].push({
+        x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 2, vy: Math.random() * 2 + 1,
+        size: Math.random() * 8 + 3, life: Math.random(), rotation: Math.random() * Math.PI * 2
+      });
+    }
+  }
+  return particles[type];
+}
+
+function drawParticles(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  const pts = getParticles(type, w, h);
+  const t = Date.now() / 1000;
+  ctx.save();
+  pts.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if (p.y > h + 10) { p.y = -10; p.x = Math.random() * w; }
+    if (p.x < -10) p.x = w + 10;
+    if (p.x > w + 10) p.x = -10;
+    p.rotation += 0.02;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rotation);
+    switch(type) {
+      case 'sparkles': {
+        const hue = (t * 100 + p.x) % 360;
+        ctx.fillStyle = 'hsla(' + hue + ',100%,80%,' + (0.5 + Math.sin(t*3 + p.life*10)*0.3) + ')';
+        drawStar(ctx, 0, 0, p.size * 0.4, p.size, 4);
+        ctx.fill();
+        break;
+      }
+      case 'hearts':
+        ctx.fillStyle = 'rgba(255,50,80,0.7)';
+        drawHeart(ctx, 0, 0, p.size);
+        break;
+      case 'stars':
+        ctx.fillStyle = 'rgba(255,255,100,0.7)';
+        drawStar(ctx, 0, 0, p.size*0.4, p.size, 5);
+        ctx.fill();
+        break;
+      case 'snow':
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.4 + Math.random()*0.4) + ')';
+        ctx.beginPath(); ctx.arc(0, 0, p.size*0.5, 0, Math.PI*2); ctx.fill();
+        break;
+      case 'confetti': {
+        const colors = ['#ff0','#f0f','#0ff','#f00','#0f0','#00f','#ff8800'];
+        ctx.fillStyle = colors[Math.floor(p.life * colors.length)];
+        ctx.fillRect(-p.size*0.5, -p.size*0.2, p.size, p.size*0.4);
+        break;
+      }
+      case 'bubbles':
+        ctx.strokeStyle = 'rgba(200,220,255,0.5)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, p.size*0.6, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = 'rgba(200,220,255,0.1)';
+        ctx.beginPath(); ctx.arc(-p.size*0.15, -p.size*0.15, p.size*0.15, 0, Math.PI*2); ctx.fill();
+        break;
+      case 'fire': {
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
+        g.addColorStop(0, 'rgba(255,255,0,0.8)');
+        g.addColorStop(0.4, 'rgba(255,100,0,0.6)');
+        g.addColorStop(1, 'rgba(255,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(0, 0, p.size, 0, Math.PI*2); ctx.fill();
+        p.vy -= 0.05;
+        break;
+      }
+      case 'rain':
+        ctx.strokeStyle = 'rgba(150,180,255,0.6)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(p.vx*2, p.vy*4); ctx.stroke();
+        p.vy = Math.abs(p.vy) + 0.1;
+        break;
+      case 'petals': {
+        ctx.fillStyle = 'rgba(255,182,193,' + (0.4 + Math.random()*0.3) + ')';
+        ctx.beginPath(); ctx.ellipse(0, 0, p.size*0.6, p.size*0.3, 0, 0, Math.PI*2); ctx.fill();
+        p.vx += Math.sin(t + p.life * 10) * 0.1;
+        break;
+      }
+      case 'butterflies': {
+        const wingAngle = Math.sin(t * 5 + p.life * 10) * 0.5;
+        ctx.fillStyle = 'rgba(100,50,200,0.6)';
+        ctx.save(); ctx.scale(Math.cos(wingAngle), 1);
+        ctx.beginPath(); ctx.ellipse(-p.size*0.3, 0, p.size*0.3, p.size*0.2, 0, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+        ctx.save(); ctx.scale(Math.cos(wingAngle + 0.5), 1);
+        ctx.beginPath(); ctx.ellipse(p.size*0.3, 0, p.size*0.3, p.size*0.2, 0, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+        p.vx += Math.sin(t * 2 + p.life * 10) * 0.05;
+        p.vy += Math.cos(t * 3 + p.life * 10) * 0.05;
+        break;
+      }
+    }
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function drawStar(ctx, cx, cy, innerR, outerR, points) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const a = (i * Math.PI / points) - Math.PI / 2;
+    const r = i % 2 === 0 ? outerR : innerR;
+    if (i === 0) ctx.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    else ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  ctx.closePath();
+}
+
+function drawHeart(ctx, cx, cy, size) {
+  ctx.beginPath();
+  const s = size * 0.15;
+  ctx.moveTo(cx, cy + s * 3);
+  ctx.bezierCurveTo(cx - s * 5, cy - s * 2, cx - s * 2, cy - s * 6, cx, cy - s * 3);
+  ctx.bezierCurveTo(cx + s * 2, cy - s * 6, cx + s * 5, cy - s * 2, cx, cy + s * 3);
+  ctx.fill();
+}
+
+// ===== COLOR FILTERS =====
+function drawColorFilter(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  ctx.save();
+  switch(type) {
+    case 'grayscale':
+      ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0, 0, w, h);
+      const gData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < gData.data.length; i += 4) {
+        const avg = gData.data[i] * 0.299 + gData.data[i+1] * 0.587 + gData.data[i+2] * 0.114;
+        gData.data[i] = gData.data[i+1] = gData.data[i+2] = avg;
+      }
+      ctx.putImageData(gData, 0, 0);
+      break;
+    case 'sepia':
+      const sData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < sData.data.length; i += 4) {
+        const r = sData.data[i], g = sData.data[i+1], b = sData.data[i+2];
+        sData.data[i] = Math.min(255, r*0.393 + g*0.769 + b*0.189);
+        sData.data[i+1] = Math.min(255, r*0.349 + g*0.686 + b*0.168);
+        sData.data[i+2] = Math.min(255, r*0.272 + g*0.534 + b*0.131);
+      }
+      ctx.putImageData(sData, 0, 0);
+      break;
+    case 'vintage':
+      const vData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < vData.data.length; i += 4) {
+        vData.data[i] = Math.min(255, vData.data[i] * 1.1 + 20);
+        vData.data[i+1] = Math.min(255, vData.data[i+1] * 0.9 + 10);
+        vData.data[i+2] = Math.min(255, vData.data[i+2] * 0.8);
+      }
+      ctx.putImageData(vData, 0, 0);
+      ctx.fillStyle = 'rgba(100,50,0,0.15)'; ctx.fillRect(0, 0, w, h);
+      break;
+    case 'invert':
+      const iData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < iData.data.length; i += 4) {
+        iData.data[i] = 255 - iData.data[i];
+        iData.data[i+1] = 255 - iData.data[i+1];
+        iData.data[i+2] = 255 - iData.data[i+2];
+      }
+      ctx.putImageData(iData, 0, 0);
+      break;
+    case 'night_vision':
+      const nData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < nData.data.length; i += 4) {
+        const avg = nData.data[i] * 0.299 + nData.data[i+1] * 0.587 + nData.data[i+2] * 0.114;
+        nData.data[i] = avg * 0.2; nData.data[i+1] = avg * 1.2; nData.data[i+2] = avg * 0.2;
+      }
+      ctx.putImageData(nData, 0, 0);
+      break;
+    case 'thermal':
+      const tData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < tData.data.length; i += 4) {
+        const avg = (tData.data[i] + tData.data[i+1] + tData.data[i+2]) / 3;
+        const norm = avg / 255;
+        if (norm < 0.33) { tData.data[i] = 0; tData.data[i+1] = 0; tData.data[i+2] = norm * 3 * 255; }
+        else if (norm < 0.66) { tData.data[i] = (norm - 0.33) * 3 * 255; tData.data[i+1] = 0; tData.data[i+2] = (0.66 - norm) * 3 * 255; }
+        else { tData.data[i] = 255; tData.data[i+1] = (norm - 0.66) * 3 * 255; tData.data[i+2] = 0; }
+      }
+      ctx.putImageData(tData, 0, 0);
+      break;
+    case 'xray':
+      const xData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < xData.data.length; i += 4) {
+        xData.data[i] = 255 - xData.data[i]; xData.data[i+1] = 255 - xData.data[i+1]; xData.data[i+2] = Math.min(255, (255 - xData.data[i+2]) * 1.5);
+      }
+      ctx.putImageData(xData, 0, 0);
+      break;
+    case 'neon':
+      const eData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < eData.data.length; i += 4) {
+        eData.data[i] = Math.min(255, eData.data[i] * 1.5);
+        eData.data[i+1] = Math.min(255, eData.data[i+1] * 0.8);
+        eData.data[i+2] = Math.min(255, eData.data[i+2] * 2);
+      }
+      ctx.putImageData(eData, 0, 0);
+      break;
+    case 'dramatic':
+      const dData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < dData.data.length; i += 4) {
+        dData.data[i] = Math.min(255, Math.max(0, (dData.data[i] - 128) * 1.5 + 128));
+        dData.data[i+1] = Math.min(255, Math.max(0, (dData.data[i+1] - 128) * 1.5 + 128));
+        dData.data[i+2] = Math.min(255, Math.max(0, (dData.data[i+2] - 128) * 1.5 + 128));
+      }
+      ctx.putImageData(dData, 0, 0);
+      break;
+    case 'sunset':
+      const suData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < suData.data.length; i += 4) {
+        suData.data[i] = Math.min(255, suData.data[i] * 1.3 + 30);
+        suData.data[i+1] = Math.min(255, suData.data[i+1] * 0.8 + 10);
+        suData.data[i+2] = Math.min(255, suData.data[i+2] * 0.6);
+      }
+      ctx.putImageData(suData, 0, 0);
+      break;
+    case 'cold_blue':
+      const cData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < cData.data.length; i += 4) {
+        cData.data[i] = Math.min(255, cData.data[i] * 0.7);
+        cData.data[i+1] = Math.min(255, cData.data[i+1] * 0.8 + 20);
+        cData.data[i+2] = Math.min(255, cData.data[i+2] * 1.4 + 30);
+      }
+      ctx.putImageData(cData, 0, 0);
+      break;
+    case 'matrix':
+      const mData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < mData.data.length; i += 4) {
+        mData.data[i] = mData.data[i] * 0.2;
+        mData.data[i+1] = Math.min(255, mData.data[i+1] * 1.5 + 20);
+        mData.data[i+2] = mData.data[i+2] * 0.2;
+      }
+      ctx.putImageData(mData, 0, 0);
+      break;
+    case 'dreamy':
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(ctx.canvas, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(255,200,255,0.1)'; ctx.fillRect(0, 0, w, h);
+      break;
+  }
+  ctx.restore();
+}
+
+// ===== SCREEN FX =====
+function drawScreenFX(ctx, video, w, h, type) {
+  ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -w, 0, w, h); ctx.restore();
+  ctx.save();
+  const t = Date.now() / 1000;
+  switch(type) {
+    case 'pixelate': {
+      const ps = 12;
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = w / ps; tempCanvas.height = h / ps;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(video, 0, 0, w / ps, h / ps);
+      ctx.imageSmoothingEnabled = false;
+      ctx.save(); ctx.scale(-1, 1); ctx.drawImage(tempCanvas, -w, 0, w, h); ctx.restore();
+      ctx.imageSmoothingEnabled = true;
+      break;
+    }
+    case 'ascii_art': {
+      const chars = ' .,:;i1tfLCG08@';
+      const ps = 6;
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = Math.ceil(w / ps); tempCanvas.height = Math.ceil(h / ps);
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.save(); tempCtx.scale(-1, 1); tempCtx.drawImage(video, -tempCanvas.width, 0, tempCanvas.width, tempCanvas.height); tempCtx.restore();
+      const data = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+      ctx.font = ps + 'px monospace'; ctx.fillStyle = '#0f0';
+      for (let y = 0; y < tempCanvas.height; y++) {
+        for (let x = 0; x < tempCanvas.width; x++) {
+          const i = (y * tempCanvas.width + x) * 4;
+          const brightness = (data[i] + data[i+1] + data[i+2]) / 3;
+          const charIdx = Math.floor((brightness / 255) * (chars.length - 1));
+          ctx.fillText(chars[charIdx], x * ps, y * ps + ps);
+        }
+      }
+      break;
+    }
+    case 'mirror_horizontal':
+      ctx.save(); ctx.translate(w/2, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, w/2, h, 0, 0, w/2, h); ctx.restore();
+      ctx.save(); ctx.translate(w/2, 0); ctx.scale(1, 1); ctx.drawImage(video, w/2, 0, w/2, h, w/2, 0, w/2, h); ctx.restore();
+      break;
+    case 'mirror_vertical':
+      ctx.save(); ctx.translate(0, h/2); ctx.scale(1, -1); ctx.drawImage(video, 0, 0, w, h/2, 0, 0, w, h/2); ctx.restore();
+      ctx.save(); ctx.translate(0, h/2); ctx.scale(1, 1); ctx.drawImage(video, 0, h/2, w, h/2, 0, h/2, w, h/2); ctx.restore();
+      break;
+    case 'glitch': {
+      const sliceCount = 8 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < sliceCount; i++) {
+        const sy = Math.random() * h;
+        const sh = Math.random() * 30 + 5;
+        const offset = (Math.random() - 0.5) * 40;
+        ctx.drawImage(ctx.canvas, 0, sy, w, sh, offset, sy, w, sh);
+      }
+      if (Math.random() > 0.7) {
+        ctx.fillStyle = 'rgba(' + (Math.random()*255|0) + ',0,' + (Math.random()*255|0) + ',0.1)';
+        ctx.fillRect(0, 0, w, h);
+      }
+      break;
+    }
+    case 'vhs': {
+      for (let y = 0; y < h; y += 3) {
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(0, y, w, 1);
+      }
+      const t2 = Date.now() / 100;
+      const scanline = (t2 % h);
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillRect(0, scanline, w, 3);
+      if (Math.random() > 0.95) {
+        const gh = Math.random() * 30;
+        ctx.drawImage(ctx.canvas, 0, 0, w, gh, (Math.random()-0.5)*10, Math.random()*h, w, gh);
+      }
+      break;
+    }
+    case 'old_film': {
+      const oData = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < oData.data.length; i += 4) {
+        const avg = oData.data[i]*0.3 + oData.data[i+1]*0.59 + oData.data[i+2]*0.11;
+        oData.data[i] = Math.min(255, avg * 1.1 + 20);
+        oData.data[i+1] = Math.min(255, avg * 1.05 + 10);
+        oData.data[i+2] = avg * 0.9;
+        if (Math.random() > 0.97) { oData.data[i] = oData.data[i+1] = oData.data[i+2] = 200; }
+      }
+      ctx.putImageData(oData, 0, 0);
+      ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(0, 0, w, h);
+      break;
+    }
+    case 'comic_book': {
+      const ps2 = 8;
+      const tempCanvas2 = document.createElement('canvas');
+      tempCanvas2.width = w; tempCanvas2.height = h;
+      const tempCtx2 = tempCanvas2.getContext('2d');
+      tempCtx2.save(); tempCtx2.scale(-1, 1); tempCtx2.drawImage(video, -w, 0, w, h); tempCtx2.restore();
+      const data2 = tempCtx2.getImageData(0, 0, w, h);
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += ps2) {
+        for (let x = 0; x < w; x += ps2) {
+          const i = (y * w + x) * 4;
+          const r = data2.data[i], g = data2.data[i+1], b = data2.data[i+2];
+          const qr = Math.round(r / 64) * 64;
+          const qg = Math.round(g / 64) * 64;
+          const qb = Math.round(b / 64) * 64;
+          ctx.fillStyle = 'rgb(' + qr + ',' + qg + ',' + qb + ')';
+          ctx.fillRect(x, y, ps2, ps2);
+        }
+      }
+      break;
+    }
+    case 'emboss': {
+      const eData2 = ctx.getImageData(0, 0, w, h);
+      const copy = new Uint8ClampedArray(eData2.data);
+      for (let y = 1; y < h; y++) {
+        for (let x = 1; x < w; x++) {
+          const i = (y * w + x) * 4;
+          const il = (y * w + (x-1)) * 4;
+          const it = ((y-1) * w + x) * 4;
+          for (let c = 0; c < 3; c++) {
+            eData2.data[i+c] = Math.min(255, Math.max(0, copy[i+c] - copy[il+c] + copy[it+c] + 128));
+          }
+        }
+      }
+      ctx.putImageData(eData2, 0, 0);
+      break;
+    }
+    case 'edge_detect': {
+      const edData = ctx.getImageData(0, 0, w, h);
+      const edCopy = new Uint8ClampedArray(edData.data);
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          const i = (y * w + x) * 4;
+          for (let c = 0; c < 3; c++) {
+            const gx = -edCopy[((y-1)*w+(x-1))*4+c] + edCopy[((y-1)*w+(x+1))*4+c]
+              - 2*edCopy[(y*w+(x-1))*4+c] + 2*edCopy[(y*w+(x+1))*4+c]
+              - edCopy[((y+1)*w+(x-1))*4+c] + edCopy[((y+1)*w+(x+1))*4+c];
+            const gy = -edCopy[((y-1)*w+(x-1))*4+c] - 2*edCopy[((y-1)*w+x)*4+c] - edCopy[((y-1)*w+(x+1))*4+c]
+              + edCopy[((y+1)*w+(x-1))*4+c] + 2*edCopy[((y+1)*w+x)*4+c] + edCopy[((y+1)*w+(x+1))*4+c];
+            edData.data[i+c] = Math.min(255, Math.sqrt(gx*gx + gy*gy));
+          }
+          edData.data[i+3] = 255;
+        }
+      }
+      ctx.putImageData(edData, 0, 0);
+      break;
+    }
+  }
+  ctx.restore();
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -47,6 +47,9 @@ function loadSettings() {
     adapterEnabled: false,
     inputSensitivity: 300,
     outputSensitivity: 100,
+    autoStartVideo: false,
+    videoDevice: null,
+    activeVideoEffect: 'none',
     activeProfileId: null,
     effects: {
       pitchShift: { enabled: false, value: 0 },
@@ -539,6 +542,14 @@ function setupIPC() {
     });
     if (result.canceled || !result.filePaths.length) return null;
     return result.filePaths[0];
+  });
+
+  ipcMain.handle('get-video-sources', async () => {
+    return { sources: [] };
+  });
+
+  ipcMain.handle('open-obs-browser-source', async (event, url) => {
+    shell.openExternal(url || 'http://localhost:8080');
   });
 }
 

@@ -49,6 +49,10 @@ contextBridge.exposeInMainWorld('api', {
   onAdapterInstalling: (cb) => ipcRenderer.on('adapter-installing', (e, v) => cb(v)),
   onAdapterProgress: (cb) => ipcRenderer.on('adapter-progress', (e, v) => cb(v)),
 
+  // Video
+  getVideoSources: () => ipcRenderer.invoke('get-video-sources'),
+  openObsBrowserSource: (url) => ipcRenderer.invoke('open-obs-browser-source', url),
+
   // Event listeners
   onInputLevel: (cb) => ipcRenderer.on('input-level', (e, v) => cb(v)),
   onOutputLevel: (cb) => ipcRenderer.on('output-level', (e, v) => cb(v)),
