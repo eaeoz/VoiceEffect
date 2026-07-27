@@ -10,8 +10,8 @@ Real-time voice and video effect processor for Windows. Change your voice with 2
 
 | Version | Download |
 |---------|----------|
-| Installer | [VoiceEffect Setup 1.0.0.exe](https://github.com/eaeoz/VoiceEffect/releases/download/1.0.0/VoiceEffect.Setup.1.0.0.exe) |
-| Portable | [VoiceEffect_portable_1.0.0.exe](https://github.com/eaeoz/VoiceEffect/releases/download/1.0.0/VoiceEffect_portable_1.0.0.exe) |
+| Installer | [VoiceEffect Setup 2.0.0.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.0/VoiceEffect.Setup.2.0.0.exe) |
+| Portable | [VoiceEffect_portable_2.0.0.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.0/VoiceEffect_portable_2.0.0.exe) |
 
 - **Installer** — Installs like a regular program. You can choose the install directory.
 - **Portable** — Runs without installation. Just double-click the `.exe` file.
