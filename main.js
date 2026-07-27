@@ -38,6 +38,9 @@ function loadSettings() {
   const defaults = {
     inputDevice: null,
     outputDevice: null,
+    outputDeviceLabel: null,
+    previousOutputDevice: null,
+    previousOutputDeviceLabel: null,
     inputVolume: 80,
     outputVolume: 80,
     theme: 'dark',

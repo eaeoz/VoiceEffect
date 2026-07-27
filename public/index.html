@@ -690,6 +690,11 @@ async function init(){
   } catch(e) {}
   await enumerateBrowserDevices();
   loadDevices();
+  if(state.settings.adapterEnabled && !state.settings.previousOutputDevice) {
+    state.settings.previousOutputDevice = state.settings.outputDevice;
+    state.settings.previousOutputDeviceLabel = state.settings.outputDeviceLabel;
+    if(api) api.saveSettings(state.settings);
+  }
   await enumerateVideoDevices();
   updateAdapterUI();
   await loadProfileSelect(true);
@@ -794,10 +799,26 @@ async function toggleAdapter(){
   updateAdapterUI();
   
   if(state.adapterEnabled) {
+    state.settings.previousOutputDevice = state.settings.outputDevice;
+    state.settings.previousOutputDeviceLabel = state.settings.outputDeviceLabel;
+    api.saveSettings(state.settings);
     await selectVirtualOutputDevice();
     showToast('Virtual output enabled');
   } else {
-    if(state.settings.outputDevice) $('outputDevice').value = state.settings.outputDevice;
+    const prevId = state.settings.previousOutputDevice;
+    const prevLabel = state.settings.previousOutputDeviceLabel;
+    if(prevId) {
+      state.settings.outputDevice = prevId;
+      state.settings.outputDeviceLabel = prevLabel;
+      const sel = $('outputDevice');
+      if(sel.querySelector(`option[value="${prevId}"]`)) {
+        sel.value = prevId;
+      } else if(prevLabel) {
+        const match = Array.from(sel.options).find(o => o.text === prevLabel);
+        if(match) sel.value = match.value;
+      }
+      api.saveSettings(state.settings);
+    }
     showToast('Virtual output disabled');
     if(state.running) {
       await changeOutputDevice();
@@ -817,7 +838,6 @@ async function selectVirtualOutputDevice(){
       );
       
       if(virtualDevice) {
-        $('outputDevice').value = virtualDevice.deviceId;
         if(api) api.setOutputDevice(virtualDevice.deviceId);
         
         if(state.running && audioCtx && audioCtx.setSinkId) {
@@ -1168,9 +1188,6 @@ async function startAudio(){
       );
       if(virtualDevice) {
         selectedOutputId = virtualDevice.deviceId;
-        $('outputDevice').value = selectedOutputId;
-        state.settings.outputDevice = selectedOutputId;
-        state.settings.outputDeviceLabel = virtualDevice.label || '';
       }
     }
     
