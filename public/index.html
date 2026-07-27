@@ -684,6 +684,10 @@ async function init(){
   loadTheme();
   renderEffectsGrid();
   await loadSettings();
+  try {
+    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    tempStream.getTracks().forEach(t => t.stop());
+  } catch(e) {}
   await enumerateBrowserDevices();
   loadDevices();
   await enumerateVideoDevices();
@@ -979,7 +983,9 @@ async function loadDevices(){
     const inputSel = $('inputDevice');
     const outputSel = $('outputDevice');
     const savedInput = state.settings.inputDevice;
+    const savedInputLabel = state.settings.inputDeviceLabel || null;
     const savedOutput = state.settings.outputDevice;
+    const savedOutputLabel = state.settings.outputDeviceLabel || null;
     inputSel.innerHTML = '';
     outputSel.innerHTML = '';
     if(browserDeviceIds.inputs.length === 0){
@@ -998,14 +1004,26 @@ async function loadDevices(){
         outputSel.innerHTML += `<option value="${d.deviceId}">${label}</option>`;
       });
     }
-    if(savedInput && inputSel.querySelector(`option[value="${savedInput}"]`)) inputSel.value = savedInput;
-    if(savedOutput && outputSel.querySelector(`option[value="${savedOutput}"]`)) outputSel.value = savedOutput;
+    if(savedInput && inputSel.querySelector(`option[value="${savedInput}"]`)) {
+      inputSel.value = savedInput;
+    } else if(savedInputLabel) {
+      const match = Array.from(inputSel.options).find(o => o.text === savedInputLabel);
+      if(match) inputSel.value = match.value;
+    }
+    if(savedOutput && outputSel.querySelector(`option[value="${savedOutput}"]`)) {
+      outputSel.value = savedOutput;
+    } else if(savedOutputLabel) {
+      const match = Array.from(outputSel.options).find(o => o.text === savedOutputLabel);
+      if(match) outputSel.value = match.value;
+    }
   } catch(e) { console.error('Device load error:', e); }
 }
 
 async function changeInputDevice(){
-  const id = $('inputDevice').value;
+  const sel = $('inputDevice');
+  const id = sel.value;
   state.settings.inputDevice = id;
+  state.settings.inputDeviceLabel = sel.options[sel.selectedIndex]?.text || '';
   if(api) { api.setInputDevice(id); api.saveSettings(state.settings); }
   if(state.running) { stopAudio(); const ok = await startAudio(); if(!ok){ await api.stopAudio(); state.running = false; $('powerBtn').classList.remove('active'); $('powerStatus').textContent = 'OFFLINE'; $('powerStatus').classList.remove('active'); } }
 }
@@ -1016,8 +1034,10 @@ async function changeOutputDevice(){
     return;
   }
   
-  const id = $('outputDevice').value;
+  const sel = $('outputDevice');
+  const id = sel.value;
   state.settings.outputDevice = id;
+  state.settings.outputDeviceLabel = sel.options[sel.selectedIndex]?.text || '';
   if(api) { api.setOutputDevice(id); api.saveSettings(state.settings); }
   if(state.running && audioCtx && audioCtx.setSinkId){
     try { await audioCtx.setSinkId(id === 'default' ? '' : id); } catch(e){ console.warn('setSinkId failed:', e); }
@@ -1081,19 +1101,60 @@ async function enumerateBrowserDevices(){
 async function startAudio(){
   try {
     const selectedInputId = state.settings.inputDevice || 'default';
-    console.log('[Audio] Starting with input device:', selectedInputId);
+    const savedInputLabel = state.settings.inputDeviceLabel || null;
+    console.log('[Audio] Starting with input device:', selectedInputId, 'label:', savedInputLabel);
     let deviceIdConstraint;
+    let matchedSavedDevice = false;
     if(selectedInputId && selectedInputId !== 'default'){
       const match = browserDeviceIds.inputs.find(d => d.deviceId === selectedInputId);
-      if(match) deviceIdConstraint = selectedInputId;
+      if(match) {
+        deviceIdConstraint = selectedInputId;
+        matchedSavedDevice = true;
+      } else if(savedInputLabel) {
+        const labelMatch = browserDeviceIds.inputs.find(d => d.label === savedInputLabel);
+        if(labelMatch) {
+          deviceIdConstraint = labelMatch.deviceId;
+          matchedSavedDevice = true;
+          console.log('[Audio] Matched input device by label:', savedInputLabel, '->', labelMatch.deviceId);
+        }
+      }
     }
     const audioConstraints = {
       echoCancellation: false, noiseSuppression: false, autoGainControl: false
     };
     if(deviceIdConstraint) audioConstraints.deviceId = { exact: deviceIdConstraint };
     console.log('[Audio] Requesting getUserMedia...');
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+    } catch(e) {
+      if(!deviceIdConstraint) throw e;
+      console.warn('[Audio] Exact device failed, re-enumerating with permission...');
+      await enumerateBrowserDevices();
+      if(savedInputLabel) {
+        const labelMatch = browserDeviceIds.inputs.find(d => d.label === savedInputLabel);
+        if(labelMatch) {
+          audioConstraints.deviceId = { exact: labelMatch.deviceId };
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+          matchedSavedDevice = true;
+          console.log('[Audio] Matched input device by label after re-enumerate:', savedInputLabel);
+        } else {
+          delete audioConstraints.deviceId;
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        }
+      } else {
+        delete audioConstraints.deviceId;
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+      }
+    }
     console.log('[Audio] Got mic stream, track:', micStream.getAudioTracks()[0]?.label);
+    const actualInputTrack = micStream.getAudioTracks()[0];
+    const actualInputId = actualInputTrack ? actualInputTrack.getSettings().deviceId : null;
+    const actualInputLabel = actualInputTrack ? actualInputTrack.label : null;
+    if(matchedSavedDevice && actualInputId) {
+      state.settings.inputDevice = actualInputId;
+      state.settings.inputDeviceLabel = actualInputLabel;
+      if(api) api.saveSettings(state.settings);
+    }
     audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
     console.log('[Audio] AudioContext state:', audioCtx.state);
     await audioCtx.resume();
@@ -1108,6 +1169,8 @@ async function startAudio(){
       if(virtualDevice) {
         selectedOutputId = virtualDevice.deviceId;
         $('outputDevice').value = selectedOutputId;
+        state.settings.outputDevice = selectedOutputId;
+        state.settings.outputDeviceLabel = virtualDevice.label || '';
       }
     }
     
@@ -1115,6 +1178,11 @@ async function startAudio(){
       const match = browserDeviceIds.outputs.find(d => d.deviceId === selectedOutputId);
       if(match){
         try { await audioCtx.setSinkId(selectedOutputId); console.log('[Audio] Output device set'); } catch(e){ console.warn('[Audio] setSinkId failed:', e.message); }
+      } else if(state.settings.outputDeviceLabel) {
+        const labelMatch = browserDeviceIds.outputs.find(d => d.label === state.settings.outputDeviceLabel);
+        if(labelMatch){
+          try { await audioCtx.setSinkId(labelMatch.deviceId); console.log('[Audio] Output device set by label:', state.settings.outputDeviceLabel); } catch(e){ console.warn('[Audio] setSinkId by label failed:', e.message); }
+        }
       }
     }
 
