@@ -1,6 +1,6 @@
 # VoiceEffect
 
-Real-time voice effect processor for Windows. Change your voice with 22 built-in effects, save presets, and route audio through virtual devices.
+Real-time voice and video effect processor for Windows. Change your voice with 22 built-in audio effects, transform your camera feed with 112 video effects powered by face tracking, save presets, and route audio through virtual devices.
 
 ![VoiceEffect UI](sample_preview/VoiceEffect_UI_Sample.jpg)
 
@@ -18,6 +18,7 @@ Both versions work on **Windows 10/11 (64-bit)**.
 
 ## Quick Start
 
+### Audio
 1. Download and run VoiceEffect (installer or portable).
 2. Allow microphone access when prompted.
 3. Select your microphone from the **Input Device** dropdown.
@@ -27,19 +28,36 @@ Both versions work on **Windows 10/11 (64-bit)**.
 
 You can hear your processed voice in real time through your speakers or headphones.
 
+### Video
+1. Allow camera access when prompted.
+2. Select your camera from the **Camera** dropdown in the Video panel.
+3. Click the camera **Power** button to start video effects.
+4. Pick an effect from the **Effect** dropdown.
+5. Use the **Preview** button to show the floating video preview.
+6. Click **OBS** to open the streaming URL for use as a Browser Source in OBS.
+
 ## Features
 
+### Audio
 - 22 built-in voice effects with on/off toggles and intensity sliders (0-100%)
 - Presets system — save, load, and delete effect combinations
 - Input/output device selection
 - Per-device volume control
 - Virtual audio adapter (VB-Cable) support with auto-install
+- Live input/output level meters with adjustable sensitivity
+
+### Video
+- 112 built-in video effects with real-time face tracking (MediaPipe FaceLandmarker)
+- Camera device selection
+- Floating video preview panel (resizable, draggable)
+- OBS integration via local MJPEG streaming server
+- Auto-start video on launch option
+
+### General
 - Dark/Light theme toggle
 - System tray minimize with close-to-tray option
-- Live input/output level meters with adjustable sensitivity
 - CPU, RAM, latency, and uptime stats display
 - Window position/size persistence across restarts
-- Auto-start audio on launch option
 - Profile backup and restore
 
 ## Effects
@@ -77,6 +95,40 @@ You can hear your processed voice in real time through your speakers or headphon
 - **Deep** — Extra low voice effect.
 - **Chipmunk** — High-pitched, fast-sounding voice.
 
+## Video Effects
+
+112 video effects powered by **MediaPipe FaceLandmarker** for real-time face tracking. Effects are organized into 19 categories:
+
+| Category | Effects |
+|----------|---------|
+| Face Mesh | Face Mesh Wireframe, Face Contour Lines, Face Landmark Glow, Face Dots |
+| Accessories | Glasses, Sunglasses, Heart Glasses, Masquerade Mask, Crown, Party Hat, Witch Hat, Angel Halo, Devil Horns, Bunny Ears, Cat Ears, Dog Ears, Reindeer Antlers, Flower Headband, Hair Bow |
+| Face Paint | War Paint, Clown Makeup, Cat Face, Skull Face, Spider Web, Butterfly Mask |
+| Facial Hair | Mustache, Full Beard, Goatee, Handlebar Mustache |
+| Face Deform | Big Eyes, Tiny Eyes, Big Mouth, Tiny Mouth, Big Nose, Tiny Nose, Long Face, Wide Face, Pinch Face, Bulge Face, Alien Head, Fish Eye |
+| Eye FX | Laser Eyes, Glowing Eyes, Fire Eyes, Rainbow Eyes, X Eyes |
+| Nose FX | Clown Nose, Rudolph Nose, Pig Nose |
+| Head FX | Fire Head, Electric Head, Mystic Aura |
+| Particles | Sparkles, Floating Hearts, Stars, Snowfall, Confetti, Bubbles, Fire, Rain, Cherry Blossom Petals, Butterflies |
+| Color Filters | Grayscale, Sepia, Vintage, Invert Colors, Night Vision, Thermal Vision, X-Ray, Neon Glow, Dramatic, Sunset Glow, Cold Blue, Matrix Green, Dreamy, Cyberpunk, Golden Hour, Horror Red |
+| Screen FX | Pixelate, ASCII Art, Mirror Horizontal, Mirror Vertical, Glitch, VHS Retro, Old Film, Comic Book, Emboss, Edge Detect, Zoom Blur, Kaleidoscope, Neon Outline |
+| Expression FX | Mouth Fire, Mouth Laser, Blink Sparkle, Smile Hearts, Angry Steam, Tongue Out, Surprise Warp, Wink Filter |
+| Face Style FX | Face Glow Pulse, Neon Face Outline, Disco Face, Sketch Face, Ice Face, Fire Face |
+| Advanced Deform | Slim Face, Big Head, Smooth Skin, Fat Face, Sharp Jaw, Long Nose, Big Forehead, Face Morph |
+| Body FX | Big Body, Slim Body, Chibi, Long Arms, Floating Head, Body Glow |
+| Hand FX | Peace Sparkle, Fire Hand, Magic Wand, Stop Sign, Heart Hands |
+| Face Replace | Zombie Face, Alien Face, Robot Face, Clown Face, Gold Face |
+
+Expression FX effects react to your facial expressions in real time using blendshape data — e.g., Mouth Fire triggers when you open your jaw, Blink Sparkle triggers on eye blink, Smile Hearts on smile.
+
+### OBS Integration
+
+Stream your video effects directly to OBS without a virtual camera driver:
+
+1. Click the **OBS** button after starting video effects.
+2. In OBS, add a **Browser Source** pointing to `http://127.0.0.1:8080`.
+3. The MJPEG stream updates at ~15 FPS with your applied video effects.
+
 ## Presets
 
 Presets let you save your current effect settings and reload them later. Open the **Side Panel** to:
@@ -107,7 +159,8 @@ Your processed voice is now routed to that app.
 | Buffer Size | 256 | Lower = less latency but more CPU usage (128-2048) |
 | Input/Output Volume | 80 | Mic and speaker volume (0-100) |
 | Theme | Dark | Dark or Light |
-| Auto-Start | Off | Start audio processing on launch |
+| Auto-Start Audio | Off | Start audio processing on launch |
+| Auto-Start Video | Off | Start video effects on launch |
 | Minimize to Tray | On | Hide to system tray instead of closing |
 | Input/Output Sensitivity | 300/100 | Level meter sensitivity (50-600) |
 
@@ -118,6 +171,7 @@ Settings are saved automatically and restored on next launch.
 - Windows 10 or later (64-bit)
 - Microphone
 - Speakers or headphones
+- (Optional) Camera for video effects
 - (Optional) VB-Audio Virtual Cable for routing to other apps
 
 ---
@@ -144,14 +198,14 @@ Output goes to `dist/`. Windows x64 only.
 ### Architecture
 
 ```
-main.js                     Electron main process (window, IPC, tray, settings, device enumeration)
+main.js                     Electron main process (window, IPC, tray, settings, OBS streaming server, MediaPipe file serving)
 preload.js                  Context bridge - exposes safe API to renderer
 audio-engine.js             Main process audio state, device enumeration, stats aggregation
 virtual-audio-adapter.js    VB-Cable driver installer/uninstaller
 create-icon.js              Programmatic PNG/ICO icon generator
 public/
-  index.html                Renderer UI + all client-side audio processing
-  voice-processor.js        AudioWorklet DSP - runs all effects on a dedicated audio thread
+  index.html                Renderer UI + all client-side audio/video processing (112 video effects, MediaPipe face tracking)
+  voice-processor.js        AudioWorklet DSP - runs all audio effects on a dedicated audio thread
 data/
   icon.ico                  Windows app icon
   icon.png                  PNG app icon
@@ -172,6 +226,23 @@ Mic Stream (getUserMedia)
 ```
 
 All audio DSP runs inside `AudioWorkletNode` on a dedicated audio thread, keeping the UI responsive. Effects are applied sequentially per audio buffer.
+
+### Video Pipeline
+
+```
+Camera (getUserMedia 1280x720)
+  -> <video> element (hidden)
+    -> MediaPipe FaceLandmarker.detectForVideo()
+      -> faceLandmarks (478 points) + faceBlendshapes (52 categories)
+    -> Canvas 2D Context (~30 FPS rendering loop)
+      -> applyVideoEffect() [switch on effect type]
+        -> Draw mirrored video + effect overlays/deformations/filters
+      -> canvas.toDataURL('image/jpeg')
+        -> OBS MJPEG Stream (127.0.0.1:8080)
+    -> <canvas> in Preview Overlay (visible to user)
+```
+
+MediaPipe FaceLandmarker is initialized asynchronously after video starts. It tries GPU acceleration first, falling back to CPU. Face landmarks and blendshapes are detected per-frame and used by effects for precise positioning and expression-driven reactions.
 
 ### IPC Channels
 
@@ -198,15 +269,26 @@ All audio DSP runs inside `AudioWorkletNode` on a dedicated audio thread, keepin
 | `open-logs-folder` | Renderer -> Main | Open logs directory |
 | `check-adapter-installed` | Renderer -> Main | Check VB-Cable status |
 | `install-adapter` / `uninstall-adapter` | Renderer -> Main | Manage VB-Cable driver |
+| `set-video-state` | Renderer -> Main | Sync video effect/device state |
+| `get-video-state` | Renderer -> Main | Get current video state |
+| `start-obs-server` | Renderer -> Main | Start OBS MJPEG streaming server |
+| `stop-obs-server` | Renderer -> Main | Stop OBS streaming server |
+| `obs-frame` | Renderer -> Main | Send JPEG frame for OBS broadcast |
+| `open-obs-browser-source` | Renderer -> Main | Open OBS browser source URL |
+| `read-mediapipe-module` | Renderer -> Main | Read MediaPipe JS module |
+| `read-mediapipe-wasm` | Renderer -> Main | Read MediaPipe WASM files |
 | `input-level` / `output-level` | Main -> Renderer | Level meter data |
 | `system-stats` | Main -> Renderer | CPU/RAM/uptime updates |
 | `adapter-status` / `adapter-installing` / `adapter-progress` | Main -> Renderer | Adapter state updates |
+| `video-state-update` | Main -> Renderer | Broadcast video state changes |
 | `log-message` | Main -> Renderer | Forward log to console |
 
 ### Tech Stack
 
 - Electron 28
 - Web Audio API (AudioWorkletNode)
+- Canvas 2D API (video effects rendering)
+- MediaPipe FaceLandmarker (real-time face tracking)
 - Vanilla HTML/CSS/JS (no frameworks)
 - PowerShell (device enumeration)
 - VB-Audio Virtual Cable (optional virtual audio routing)
