@@ -2,7 +2,9 @@
 
 Real-time voice and video effect processor for Windows. Change your voice with 22 built-in audio effects, transform your camera feed with 112 video effects powered by face tracking, save presets, and route audio through virtual devices.
 
-![VoiceEffect UI](sample_preview/VoiceEffect_UI_Sample.jpg)
+![VoiceEffect Audio UI](sample_preview/VoiceEffect_UI_Sample_1.jpg)
+
+![VoiceEffect Video UI](sample_preview/VoiceEffect_UI_Sample_2.jpg)
 
 ## Download
 
