@@ -66,18 +66,38 @@ class VoiceProcessor extends AudioWorkletProcessor {
       case 'pitchShift': {
         const st = this.getDelayBuffer(name, 0.1);
         const factor = Math.pow(2, (value - 50) / 24);
+        const windowSize = Math.floor(sr * 0.05); // 50ms window
+        const phaseInc = (1 - factor) / windowSize;
+        st.phase = st.phase || 0;
+        
         const tmp = new Float32Array(len);
         for (let i = 0; i < len; i++) {
           st.delayBuffer[st.idx] = data[i];
+          
+          st.phase += phaseInc;
+          if (st.phase >= 1.0) st.phase -= 1.0;
+          else if (st.phase < 0.0) st.phase += 1.0;
+          
+          const p1 = st.phase;
+          const p2 = (st.phase + 0.5) % 1.0;
+          
+          const env1 = 1.0 - Math.abs(p1 - 0.5) * 2.0;
+          const env2 = 1.0 - Math.abs(p2 - 0.5) * 2.0;
+          
+          const offset1 = p1 * windowSize;
+          const offset2 = p2 * windowSize;
+          
+          const getSample = (offset) => {
+            let readIdx = st.idx - offset;
+            if (readIdx < 0) readIdx += st.size;
+            const r1 = Math.floor(readIdx);
+            const r2 = (r1 + 1) % st.size;
+            const frac = readIdx - r1;
+            return st.delayBuffer[r1] * (1 - frac) + st.delayBuffer[r2] * frac;
+          };
+          
+          tmp[i] = getSample(offset1) * env1 + getSample(offset2) * env2;
           st.idx = (st.idx + 1) % st.size;
-          
-          st.readIdx = (st.readIdx || 0) + factor;
-          if (st.readIdx >= st.size) st.readIdx -= st.size;
-          
-          const r1 = Math.floor(st.readIdx);
-          const r2 = (r1 + 1) % st.size;
-          const frac = st.readIdx - r1;
-          tmp[i] = st.delayBuffer[r1] * (1 - frac) + st.delayBuffer[r2] * frac;
         }
         data.set(tmp);
         break;
@@ -273,26 +293,44 @@ class VoiceProcessor extends AudioWorkletProcessor {
       case 'childVoice':
       case 'chipmunk':
       case 'deepVoice': {
-        const st = this.getDelayBuffer(name, 0.2);
+        const st = this.getDelayBuffer(name, 0.1);
         let factor = 1;
         if (name === 'monster') factor = 1 - (value / 100) * 0.5;
         if (name === 'childVoice') factor = 1 + (value / 100) * 0.8;
         if (name === 'deepVoice') factor = 1 - (value / 100) * 0.4;
         if (name === 'chipmunk') factor = 1 + (value / 100) * 1.5;
         
+        const windowSize = Math.floor(sr * 0.05); // 50ms window
+        const phaseInc = (1 - factor) / windowSize;
+        st.phase = st.phase || 0;
+        
         const tmp = new Float32Array(len);
         for (let i = 0; i < len; i++) {
           st.delayBuffer[st.idx] = data[i];
-          st.idx = (st.idx + 1) % st.size;
           
-          st.readIdx = (st.readIdx || 0) + factor;
-          if (st.readIdx >= st.size) st.readIdx -= st.size;
+          st.phase += phaseInc;
+          if (st.phase >= 1.0) st.phase -= 1.0;
+          else if (st.phase < 0.0) st.phase += 1.0;
           
-          const r1 = Math.floor(st.readIdx);
-          const r2 = (r1 + 1) % st.size;
-          const frac = st.readIdx - r1;
+          const p1 = st.phase;
+          const p2 = (st.phase + 0.5) % 1.0;
           
-          let s = st.delayBuffer[r1] * (1 - frac) + st.delayBuffer[r2] * frac;
+          const env1 = 1.0 - Math.abs(p1 - 0.5) * 2.0;
+          const env2 = 1.0 - Math.abs(p2 - 0.5) * 2.0;
+          
+          const offset1 = p1 * windowSize;
+          const offset2 = p2 * windowSize;
+          
+          const getSample = (offset) => {
+            let readIdx = st.idx - offset;
+            if (readIdx < 0) readIdx += st.size;
+            const r1 = Math.floor(readIdx);
+            const r2 = (r1 + 1) % st.size;
+            const frac = readIdx - r1;
+            return st.delayBuffer[r1] * (1 - frac) + st.delayBuffer[r2] * frac;
+          };
+          
+          let s = getSample(offset1) * env1 + getSample(offset2) * env2;
           
           if (name === 'monster') s *= 1.3;
           if (name === 'childVoice') s *= 0.8;
@@ -302,6 +340,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
             s = s * 0.5 + st.prev * 1.5;
           }
           tmp[i] = s;
+          st.idx = (st.idx + 1) % st.size;
         }
         data.set(tmp);
         break;
