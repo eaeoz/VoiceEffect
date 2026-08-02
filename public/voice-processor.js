@@ -175,6 +175,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
           data[i] = (data[i] + st.delayBuffer[readIdx]) * 0.5;
           st.idx = (st.idx + 1) % st.size;
           st.phase += 2 * Math.PI * 1.5 / sr;
+          if (st.phase > 2 * Math.PI) st.phase -= 2 * Math.PI;
         }
         break;
       }
@@ -267,6 +268,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
         for (let i = 0; i < len; i++) {
           data[i] *= Math.sin(st.phase) * 2;
           st.phase += 2 * Math.PI * mf / sr;
+          if (st.phase > 2 * Math.PI) st.phase -= 2 * Math.PI;
         }
         break;
       }
@@ -286,6 +288,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
           data[i] = st.delayBuffer[readIdx];
           st.idx = (st.idx + 1) % st.size;
           st.phase += 2 * Math.PI * mf / sr;
+          if (st.phase > 2 * Math.PI) st.phase -= 2 * Math.PI;
         }
         break;
       }
