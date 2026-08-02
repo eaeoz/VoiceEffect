@@ -258,30 +258,46 @@ class VoiceProcessor extends AudioWorkletProcessor {
         break;
       }
       case 'radio': {
-        const bp = value / 100;
+        const intensity = value / 100;
         const st = this.getState(name);
         st.hp = st.hp || 0;
         st.lp = st.lp || 0;
         st.prev = st.prev || 0;
+        
+        const hpCoeff = 0.9 - (intensity * 0.05);
+        const lpAlpha = 0.2 + (intensity * 0.1);
+        const dist = 3.0 + intensity * 5.0;
+        
         for (let i = 0; i < len; i++) {
-          st.hp = (0.9 + bp * 0.08) * (st.hp + data[i] - st.prev);
-          st.lp = (0.02 + bp * 0.08) * data[i] + (1 - 0.02 - bp * 0.08) * st.lp;
-          const bpf = st.hp - st.lp;
+          st.hp = hpCoeff * (st.hp + data[i] - st.prev);
           st.prev = data[i];
-          data[i] = Math.tanh(bpf / 0.3) * 0.3 * 3;
+          st.lp = lpAlpha * st.hp + (1 - lpAlpha) * st.lp;
+          
+          let s = st.lp * dist;
+          if (s > 0) s = Math.tanh(s);
+          else s = Math.tanh(s * 0.5);
+          
+          data[i] = s * 0.7;
         }
         break;
       }
       case 'telephone': {
+        const intensity = value / 100;
         const st = this.getState(name);
         st.hp = st.hp || 0;
         st.lp = st.lp || 0;
         st.prev = st.prev || 0;
+        
+        const hpCoeff = 0.96 - (intensity * 0.1); 
+        const lpAlpha = 0.35 - (intensity * 0.2); 
+        const dist = 2.0 + intensity * 6.0;
+        
         for (let i = 0; i < len; i++) {
-          st.hp = 0.85 * (st.hp + data[i] - st.prev);
-          st.lp = 0.15 * data[i] + 0.85 * st.lp;
+          st.hp = hpCoeff * (st.hp + data[i] - st.prev);
           st.prev = data[i];
-          data[i] = Math.tanh((st.hp + st.lp) / 0.24) * 0.24 * 2.5;
+          st.lp = lpAlpha * st.hp + (1 - lpAlpha) * st.lp;
+          
+          data[i] = Math.tanh(st.lp * dist) * 0.6;
         }
         break;
       }
