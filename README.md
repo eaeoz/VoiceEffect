@@ -27,8 +27,8 @@ iex (iwr -useb https://tinyurl.com/voiceffect)
 
 | Version | Download |
 |---------|----------|
-| Installer | [VoiceEffect Setup 2.0.0.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.0/VoiceEffect.Setup.2.0.0.exe) |
-| Portable | [VoiceEffect_portable_2.0.0.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.0/VoiceEffect_portable_2.0.0.exe) |
+| Installer | [VoiceEffect Setup 2.0.1.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.1/VoiceEffect.Setup.2.0.1.exe) |
+| Portable | [VoiceEffect_portable_2.0.1.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.1/VoiceEffect_portable_2.0.1.exe) |
 
 - **Installer** — Installs like a regular program. You can choose the install directory.
 - **Portable** — Runs without installation. Just double-click the `.exe` file.
@@ -58,6 +58,7 @@ You can hear your processed voice in real time through your speakers or headphon
 ## Features
 
 ### Audio
+- Advanced audio processing engine via AudioWorkletProcessor for high-performance real-time DSP effects
 - 22 built-in voice effects with on/off toggles and intensity sliders (0-100%)
 - Presets system — save, load, and delete effect combinations
 - Input/output device selection
@@ -73,6 +74,8 @@ You can hear your processed voice in real time through your speakers or headphon
 - Auto-start video on launch option
 
 ### General
+- Tracking of previously used output devices in settings
+- Enhanced audio device handling to correctly save and match device labels
 - Dark/Light theme toggle
 - System tray minimize with close-to-tray option
 - CPU, RAM, latency, and uptime stats display
