@@ -180,49 +180,73 @@ class VoiceProcessor extends AudioWorkletProcessor {
         break;
       }
       case 'compressor': {
-        const thr = (1 - value / 100);
+        const thr = 1.0 - (value / 100) * 0.9;
         const ratio = 1 + (value / 10) * 3;
+        const st = this.getState(name);
+        st.env = st.env || 0;
+        const attack = Math.exp(-1 / (sr * 0.005));
+        const release = Math.exp(-1 / (sr * 0.100));
         for (let i = 0; i < len; i++) {
           const a = Math.abs(data[i]);
-          if (a > thr) data[i] = Math.sign(data[i]) * (thr + (a - thr) / ratio);
+          if (a > st.env) st.env = attack * st.env + (1 - attack) * a;
+          else st.env = release * st.env + (1 - release) * a;
+          if (st.env > thr && st.env > 0) {
+            data[i] *= (thr + (st.env - thr) / ratio) / st.env;
+          }
         }
         break;
       }
       case 'limiter': {
-        const lim = value / 100;
+        const st = this.getState(name);
+        st.env = st.env || 0;
+        const attack = Math.exp(-1 / (sr * 0.001));
+        const release = Math.exp(-1 / (sr * 0.050));
+        const threshold = 1.0 - (value / 100) * 0.8;
+        const makeup = 1.0 / threshold;
         for (let i = 0; i < len; i++) {
-          if (Math.abs(data[i]) > lim) data[i] = Math.sign(data[i]) * lim;
+          const a = Math.abs(data[i]);
+          if (a > st.env) st.env = attack * st.env + (1 - attack) * a;
+          else st.env = release * st.env + (1 - release) * a;
+          let gain = 1.0;
+          if (st.env > threshold) gain = threshold / st.env;
+          data[i] = data[i] * gain * makeup;
+          if (data[i] > 1.0) data[i] = 1.0;
+          if (data[i] < -1.0) data[i] = -1.0;
         }
         break;
       }
       case 'equalizer': {
-        const gain = (value - 50) / 50 * 6;
+        const tilt = (value - 50) / 50;
         const st = this.getState(name);
-        st.prev = st.prev || 0;
+        st.lp = st.lp || 0;
+        const alpha = 0.1;
         for (let i = 0; i < len; i++) {
-          st.prev += 0.1 * (data[i] - st.prev);
-          data[i] += st.prev * gain / 6;
+          st.lp += alpha * (data[i] - st.lp);
+          const hp = data[i] - st.lp;
+          data[i] = st.lp * (1 - tilt) + hp * (1 + tilt);
         }
         break;
       }
       case 'bassBoost': {
-        const g = value / 100 * 12;
+        const boost = value / 100; 
         const st = this.getState(name);
-        st.prev = st.prev || 0;
+        st.lp = st.lp || 0;
+        const alpha = 0.035;
         for (let i = 0; i < len; i++) {
-          st.prev = 0.95 * st.prev + 0.05 * data[i];
-          data[i] += st.prev * g / 12;
+          st.lp += alpha * (data[i] - st.lp);
+          data[i] += st.lp * boost * 2.0;
         }
         break;
       }
       case 'trebleBoost': {
-        const g = value / 100 * 12;
+        const boost = value / 100;
         const st = this.getState(name);
-        st.prev = st.prev || 0;
+        st.lp = st.lp || 0;
+        const alpha = 0.3;
         for (let i = 0; i < len; i++) {
-          const h = data[i] - (0.05 * st.prev + 0.95 * data[i]);
-          st.prev = data[i];
-          data[i] += h * g / 12;
+          st.lp += alpha * (data[i] - st.lp);
+          const hp = data[i] - st.lp;
+          data[i] += hp * boost * 2.0;
         }
         break;
       }
