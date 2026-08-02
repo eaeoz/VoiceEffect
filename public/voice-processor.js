@@ -291,12 +291,18 @@ class VoiceProcessor extends AudioWorkletProcessor {
       }
       case 'monster':
       case 'childVoice':
+      case 'womanVoice':
+      case 'girlVoice':
+      case 'ladyVoice':
       case 'chipmunk':
       case 'deepVoice': {
         const st = this.getDelayBuffer(name, 0.1);
         let factor = 1;
         if (name === 'monster') factor = 1 - (value / 100) * 0.5;
         if (name === 'childVoice') factor = 1 + (value / 100) * 0.8;
+        if (name === 'womanVoice') factor = 1 + (value / 100) * 0.35;
+        if (name === 'girlVoice') factor = 1 + (value / 100) * 0.6;
+        if (name === 'ladyVoice') factor = 1 + (value / 100) * 0.2;
         if (name === 'deepVoice') factor = 1 - (value / 100) * 0.4;
         if (name === 'chipmunk') factor = 1 + (value / 100) * 1.5;
         
@@ -334,6 +340,9 @@ class VoiceProcessor extends AudioWorkletProcessor {
           
           if (name === 'monster') s *= 1.3;
           if (name === 'childVoice') s *= 0.8;
+          if (name === 'womanVoice') s *= 0.9;
+          if (name === 'girlVoice') s *= 0.85;
+          if (name === 'ladyVoice') s *= 0.95;
           if (name === 'chipmunk') s *= 0.7;
           if (name === 'deepVoice') {
             st.prev = 0.97 * (st.prev || 0) + 0.03 * s;
