@@ -179,6 +179,112 @@ class VoiceProcessor extends AudioWorkletProcessor {
         }
         break;
       }
+      case 'flanger': {
+        const depth = value / 100;
+        const st = this.getDelayBuffer(name, 0.05);
+        st.phase = st.phase || 0;
+        const rate = 0.5 + depth * 2.0; 
+        for (let i = 0; i < len; i++) {
+          const mod = (Math.sin(st.phase) + 1) * 0.5;
+          const delaySamples = (sr * 0.001) + mod * (sr * 0.009 * depth); 
+          let readIdx = st.idx - delaySamples;
+          while (readIdx < 0) readIdx += st.size;
+          
+          const r1 = Math.floor(readIdx);
+          const r2 = (r1 + 1) % st.size;
+          const frac = readIdx - r1;
+          const delayed = st.delayBuffer[r1] * (1 - frac) + st.delayBuffer[r2] * frac;
+          
+          const feedback = 0.5 * depth;
+          st.delayBuffer[st.idx] = data[i] + delayed * feedback;
+          
+          data[i] = (data[i] + delayed) * 0.5;
+          st.idx = (st.idx + 1) % st.size;
+          st.phase += 2 * Math.PI * rate / sr;
+          if (st.phase > 2 * Math.PI) st.phase -= 2 * Math.PI;
+        }
+        break;
+      }
+      case 'tremolo': {
+        const depth = value / 100;
+        const st = this.getState(name);
+        st.phase = st.phase || 0;
+        const rate = 1 + depth * 8; 
+        for (let i = 0; i < len; i++) {
+          const lfo = 1.0 - depth * 0.5 * (1.0 - Math.sin(st.phase)); 
+          data[i] *= lfo;
+          st.phase += 2 * Math.PI * rate / sr;
+          if (st.phase > 2 * Math.PI) st.phase -= 2 * Math.PI;
+        }
+        break;
+      }
+      case 'wahwah': {
+        const depth = value / 100;
+        const st = this.getState(name);
+        st.phase = st.phase || 0;
+        st.bp = st.bp || 0;
+        st.lp = st.lp || 0;
+        const rate = 1.0 + depth * 4.0;
+        
+        for (let i = 0; i < len; i++) {
+          const lfo = (Math.sin(st.phase) + 1) * 0.5; 
+          const freq = 400 + lfo * 2000 * depth;
+          
+          const f = 2 * Math.sin(Math.PI * freq / sr);
+          const q = 0.2; 
+          
+          const hp = data[i] - st.lp - q * st.bp;
+          st.bp += f * hp;
+          st.lp += f * st.bp;
+          
+          data[i] = st.bp * 2.0; 
+          
+          st.phase += 2 * Math.PI * rate / sr;
+          if (st.phase > 2 * Math.PI) st.phase -= 2 * Math.PI;
+        }
+        break;
+      }
+      case 'bitcrusher': {
+        const amount = value / 100;
+        const bits = Math.max(2, 16 - Math.floor(amount * 14));
+        const steps = Math.pow(2, bits);
+        const st = this.getState(name);
+        st.step = st.step || 0;
+        st.lastSample = st.lastSample || 0;
+        const hold = Math.floor(1 + amount * 19); 
+        
+        for (let i = 0; i < len; i++) {
+          st.step++;
+          if (st.step >= hold) {
+            st.step = 0;
+            st.lastSample = Math.round(data[i] * steps) / steps;
+          }
+          data[i] = st.lastSample;
+        }
+        break;
+      }
+      case 'underwater': {
+        const depth = value / 100;
+        const st = this.getState(name);
+        st.lp1 = st.lp1 || 0;
+        st.lp2 = st.lp2 || 0;
+        st.phase = st.phase || 0;
+        
+        for (let i = 0; i < len; i++) {
+          const lfo = (Math.sin(st.phase) + 1) * 0.5; 
+          const freq = 200 + lfo * 400 * (1 - depth * 0.5);
+          
+          const alpha = 2 * Math.PI * freq / sr;
+          st.lp1 += alpha * (data[i] - st.lp1);
+          st.lp2 += alpha * (st.lp1 - st.lp2);
+          
+          data[i] = st.lp2 * 1.5;
+          
+          st.phase += 2 * Math.PI * 0.2 / sr; 
+          if (st.phase > 2 * Math.PI) st.phase -= 2 * Math.PI;
+        }
+        break;
+      }
       case 'compressor': {
         const thr = 1.0 - (value / 100) * 0.9;
         const ratio = 1 + (value / 10) * 3;
