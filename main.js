@@ -181,6 +181,15 @@ function extFromType(type) {
   if (type.includes('mp3')) return 'mp3';
   return 'webm';
 }
+function hasAudioMagic(buf) {
+  if (!buf || buf.length < 4) return false;
+  if (buf[0] === 0x1A && buf[1] === 0x45 && buf[2] === 0xDF && buf[3] === 0xA3) return true;
+  if (buf[0] === 0x4F && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53) return true;
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return true;
+  if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) return true;
+  if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return true;
+  return false;
+}
 
 function loadSettings() {
   const settingsPath = path.join(getDataPath(), 'settings.json');
@@ -725,16 +734,21 @@ function setupIPC() {
       if (result.canceled || !result.filePath) return { success: false, canceled: true };
       const files = {};
       const meta = [];
-      items.forEach((it, i) => {
+      let skipped = 0;
+      let n = 0;
+      items.forEach(it => {
+        const buf = Buffer.from(it.data, 'base64');
+        if (!hasAudioMagic(buf)) { skipped++; return; }
+        n++;
         const ext = extFromType(it.type);
-        const fname = 'record_' + (i + 1) + '.' + ext;
-        files[fname] = { data: Buffer.from(it.data, 'base64') };
+        const fname = 'record_' + n + '.' + ext;
+        files[fname] = { data: buf };
         meta.push({ file: fname, name: it.name, date: it.date, dur: it.dur, type: it.type || 'audio/webm' });
       });
       files['recordings.json'] = { data: Buffer.from(JSON.stringify(meta, null, 2), 'utf8') };
       const zip = createZip(files);
       fs.writeFileSync(result.filePath, zip);
-      log('INFO', 'Backed up ' + items.length + ' recording(s)');
+      log('INFO', 'Backed up ' + items.length + ' recording(s)' + (skipped ? ' (skipped ' + skipped + ' corrupted)' : ''));
       return { success: true, count: items.length, filePath: result.filePath };
     } catch (e) {
       return { success: false, error: e.message };
@@ -756,20 +770,24 @@ function setupIPC() {
         try { meta = JSON.parse(files['recordings.json'].toString('utf8')); } catch (e) { meta = []; }
       }
       const items = [];
+      let skipped = 0;
       if (meta.length) {
         meta.forEach(m => {
           const buf = files[m.file];
-          if (buf) items.push({ name: m.name, date: m.date, dur: m.dur, type: m.type || 'audio/webm', data: buf.toString('base64') });
+          if (buf && hasAudioMagic(buf)) items.push({ name: m.name, date: m.date, dur: m.dur, type: m.type || 'audio/webm', data: buf.toString('base64') });
+          else if (buf) skipped++;
         });
       } else {
         Object.keys(files).filter(n => /^record_.*\.(webm|ogg|wav|mp3)$/i.test(n)).sort().forEach(n => {
+          const buf = files[n];
+          if (!hasAudioMagic(buf)) { skipped++; return; }
           const ext = n.split('.').pop().toLowerCase();
           const mime = ext === 'mp3' ? 'audio/mpeg' : 'audio/' + ext;
-          items.push({ name: n, date: null, dur: null, type: mime, data: files[n].toString('base64') });
+          items.push({ name: n, date: null, dur: null, type: mime, data: buf.toString('base64') });
         });
       }
-      if (items.length === 0) return { success: false, error: 'No recordings found in the selected file' };
-      log('INFO', 'Restored ' + items.length + ' recording(s)');
+      if (items.length === 0) return { success: false, error: 'No valid recordings found in the selected file' };
+      log('INFO', 'Restored ' + items.length + ' recording(s)' + (skipped ? ' (skipped ' + skipped + ' corrupted)' : ''));
       return { success: true, count: items.length, items };
     } catch (e) {
       return { success: false, error: e.message };
@@ -822,6 +840,22 @@ function setupIPC() {
         }
       }
       return { success: true, items };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('clear-recordings', async () => {
+    try {
+      const dir = getRecordingsDir();
+      const index = loadRecordingsIndex();
+      for (const entry of index) {
+        if (entry.file) {
+          try { fs.unlinkSync(path.join(dir, entry.file)); } catch (e) {}
+        }
+      }
+      saveRecordingsIndex([]);
+      return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
     }
