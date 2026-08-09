@@ -667,6 +667,20 @@ background-repeat:no-repeat;background-position:right 6px center}
         Export your profiles to a local file, or import a previously saved backup.
       </div>
     </div>
+    <div class="form-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+      <label class="form-label">Recordings</label>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="backupRecordings()" style="flex:1">
+          &#128190; Backup Records
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="restoreRecordings()" style="flex:1">
+          &#128194; Restore Records
+        </button>
+      </div>
+      <div style="font-size:9px;color:var(--text-secondary);margin-top:6px">
+        Back up your recorded sounds as a ZIP file, or restore a previously saved backup.
+      </div>
+    </div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
       <button class="btn btn-secondary" onclick="resetSettings()">Reset Defaults</button>
@@ -757,6 +771,7 @@ async function init(){
   updateAdapterUI();
   await loadProfileSelect(true);
   setupEventListeners();
+  await loadRecordingsFromDisk();
   checkAdapterStatus();
   showToast('VoiceEffect ready');
   if(state.settings.autoStart) togglePower();
@@ -1711,13 +1726,105 @@ function updateRecordBtn(recording){
   }
 }
 
-function addRecording(blob){
+async function addRecording(blob){
   recordSeq++;
   const url = URL.createObjectURL(blob);
   const durMs = recorder.startTime ? (Date.now() - recorder.startTime) : 0;
-  recordings.push({ id: 'rec-' + recordSeq, name: 'Record ' + recordSeq, url, dur: fmtDuration(durMs), date: Date.now() });
+  const rec = { id: 'rec-' + recordSeq, name: 'Record ' + recordSeq, url, blob, dur: fmtDuration(durMs), date: Date.now() };
+  recordings.push(rec);
   renderRecordings();
+  if(api && api.saveRecording){
+    try {
+      const data = await blobToBase64(blob);
+      await api.saveRecording({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: blob.type || 'audio/webm', data });
+    } catch(e) { console.error('Persist recording error:', e); }
+  }
   showToast('Recording saved');
+}
+
+function blobToBase64(blob){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result).split(',')[1]);
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(blob);
+  });
+}
+
+function base64ToBlob(b64, type){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: type || 'audio/webm' });
+}
+
+async function backupRecordings(){
+  if(!api) return;
+  if(recordings.length === 0){ showToast('No recordings to backup'); return; }
+  try {
+    const items = [];
+    for(const r of recordings){
+      if(!r.blob){ showToast('Cannot backup: a recording is missing data'); return; }
+      items.push({ name: r.name, date: r.date, dur: r.dur, type: r.blob.type, data: await blobToBase64(r.blob) });
+    }
+    const result = await api.backupRecordings(items);
+    if(result.success){
+      showToast('Backed up ' + result.count + ' recording(s)!');
+    } else if(result.canceled){
+      // do nothing
+    } else {
+      showToast('Backup failed: ' + result.error);
+    }
+  } catch(e) {
+    showToast('Backup error: ' + e.message);
+  }
+}
+
+async function loadRecordingsFromDisk(){
+  if(!api || !api.loadRecordings) return;
+  try {
+    const result = await api.loadRecordings();
+    if(!result || !result.success || !result.items) return;
+    let maxSeq = 0;
+    result.items.forEach(it => {
+      const m = /^rec-(\d+)$/.exec(it.id || '');
+      if(m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10));
+    });
+    if(maxSeq > recordSeq) recordSeq = maxSeq;
+    result.items.forEach(it => {
+      const blob = base64ToBlob(it.data, it.type);
+      const url = URL.createObjectURL(blob);
+      recordings.push({ id: it.id, name: it.name, url, blob, dur: it.dur, date: it.date });
+    });
+    renderRecordings();
+  } catch(e) { console.error('Load recordings error:', e); }
+}
+
+async function restoreRecordings(){
+  if(!api) return;
+  try {
+    const result = await api.restoreRecordings();
+    if(result.success){
+      result.items.forEach(it => {
+        recordSeq++;
+        const blob = base64ToBlob(it.data, it.type);
+        const url = URL.createObjectURL(blob);
+        const rec = { id: 'rec-' + recordSeq, name: it.name || ('Record ' + recordSeq), url, blob, dur: it.dur || '0:00', date: it.date || Date.now() };
+        recordings.push(rec);
+        if(api && api.saveRecording){
+          api.saveRecording({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: rec.blob.type || 'audio/webm', data: it.data }).catch(e => console.error('Persist restored recording error:', e));
+        }
+      });
+      renderRecordings();
+      showToast('Restored ' + result.count + ' recording(s)!');
+    } else if(result.canceled){
+      // do nothing
+    } else {
+      showToast('Restore failed: ' + result.error);
+    }
+  } catch(e) {
+    showToast('Restore error: ' + e.message);
+  }
 }
 
 function renderRecordings(){
@@ -1754,6 +1861,7 @@ function deleteRecording(id){
   if(currentPlayId === id) stopPlayback();
   recordings.splice(idx, 1);
   renderRecordings();
+  if(api && api.deleteRecording) api.deleteRecording(id).catch(e => console.error('Delete persisted recording error:', e));
 }
 
 function getPlayElement(){

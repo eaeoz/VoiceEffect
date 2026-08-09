@@ -34,6 +34,11 @@ contextBridge.exposeInMainWorld('api', {
   deletePreset: (id) => ipcRenderer.invoke('delete-preset', id),
   backupProfiles: () => ipcRenderer.invoke('backup-profiles'),
   restoreProfiles: () => ipcRenderer.invoke('restore-profiles'),
+  backupRecordings: (items) => ipcRenderer.invoke('backup-recordings', items),
+  restoreRecordings: () => ipcRenderer.invoke('restore-recordings'),
+  saveRecording: (rec) => ipcRenderer.invoke('save-recording', rec),
+  deleteRecording: (id) => ipcRenderer.invoke('delete-recording', id),
+  loadRecordings: () => ipcRenderer.invoke('load-recordings'),
 
   // External
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
