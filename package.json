@@ -1,6 +1,6 @@
 {
   "name": "voice-effect",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Real-time voice effect processor",
   "main": "main.js",
   "author": "Sedat Ergoz",
