@@ -179,6 +179,7 @@ function extFromType(type) {
   if (type.includes('ogg')) return 'ogg';
   if (type.includes('wav')) return 'wav';
   if (type.includes('mp3')) return 'mp3';
+  if (type.includes('flac')) return 'flac';
   return 'webm';
 }
 function hasAudioMagic(buf) {
@@ -187,6 +188,7 @@ function hasAudioMagic(buf) {
   if (buf[0] === 0x4F && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53) return true;
   if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return true;
   if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) return true;
+  if (buf[0] === 0x66 && buf[1] === 0x4C && buf[2] === 0x61 && buf[3] === 0x43) return true;
   if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return true;
   return false;
 }
@@ -778,7 +780,7 @@ function setupIPC() {
           else if (buf) skipped++;
         });
       } else {
-        Object.keys(files).filter(n => /^record_.*\.(webm|ogg|wav|mp3)$/i.test(n)).sort().forEach(n => {
+        Object.keys(files).filter(n => /^record_.*\.(webm|ogg|wav|mp3|flac)$/i.test(n)).sort().forEach(n => {
           const buf = files[n];
           if (!hasAudioMagic(buf)) { skipped++; return; }
           const ext = n.split('.').pop().toLowerCase();
@@ -800,14 +802,17 @@ function setupIPC() {
       const index = loadRecordingsIndex();
       const ext = extFromType(rec.type);
       const fileName = rec.id + '.' + ext;
-      fs.writeFileSync(path.join(dir, fileName), Buffer.from(rec.data, 'base64'));
+      const dataBuf = Buffer.from(rec.data, 'base64');
+      fs.writeFileSync(path.join(dir, fileName), dataBuf);
       const entry = { id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: rec.type || 'audio/webm', file: fileName };
       const i = index.findIndex(x => x.id === rec.id);
       if (i === -1) index.push(entry);
       else index[i] = entry;
       saveRecordingsIndex(index);
-      return { success: true };
+      log('INFO', 'Saved recording ' + rec.id + ' (' + dataBuf.length + ' bytes, ' + (rec.type || 'audio/webm') + ')');
+      return { success: true, bytes: dataBuf.length };
     } catch (e) {
+      log('ERROR', 'Save recording error: ' + e.message);
       return { success: false, error: e.message };
     }
   });
@@ -870,11 +875,16 @@ function setupIPC() {
       for (const entry of index) {
         const filePath = path.join(getRecordingsDir(), entry.file);
         if (fs.existsSync(filePath)) {
-          items.push({ id: entry.id, name: entry.name, date: entry.date, dur: entry.dur, type: entry.type, data: fs.readFileSync(filePath).toString('base64') });
+          const buf = fs.readFileSync(filePath);
+          items.push({ id: entry.id, name: entry.name, date: entry.date, dur: entry.dur, type: entry.type, bytes: buf.length, data: buf.toString('base64') });
+        } else {
+          log('WARN', 'Recording file missing for index entry: ' + entry.id + ' (' + entry.file + ')');
         }
       }
+      log('INFO', 'Loaded ' + items.length + ' recording(s) from disk');
       return { success: true, items };
     } catch (e) {
+      log('ERROR', 'Load recordings error: ' + e.message);
       return { success: false, error: e.message };
     }
   });

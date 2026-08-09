@@ -1429,7 +1429,7 @@ async function loadSettings(){
       });
     }
     updateAdapterUI();
-    if(s.recordSource) recordSource = s.recordSource;
+    recordSource = 'app';
     updateRecordSourceUI();
     if($('systemOutputDevice') && s.systemOutputDevice){
       const so = Array.from($('systemOutputDevice').options).find(o => o.value === s.systemOutputDevice);
@@ -1713,7 +1713,10 @@ function updateRecordSourceUI(){
 async function getSystemStream(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) throw new Error('System capture unavailable');
   const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-  stream.getVideoTracks().forEach(t => t.stop());
+  stream.getVideoTracks().forEach(t => {
+    try { t.stop(); } catch(e) {}
+    try { stream.removeTrack(t); } catch(e) {}
+  });
   return stream;
 }
 let editMode = false;
@@ -1859,7 +1862,8 @@ function updateRecordBtn(recording){
 }
 
 async function addRecording(blob){
-  if(!(await isLikelyAudioBlob(blob))){
+  const valid = !!blob && blob.size >= 512 && (await isLikelyAudioBlob(blob));
+  if(!valid){
     showToast('Recording produced no valid audio and was discarded');
     return;
   }
@@ -1872,7 +1876,11 @@ async function addRecording(blob){
   if(api && api.saveRecording){
     try {
       const data = await blobToBase64(blob);
-      await api.saveRecording({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: blob.type || 'audio/webm', data });
+      const res = await api.saveRecording({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: blob.type || 'audio/webm', data });
+      if(res && res.success === false){
+        showToast('Recording not saved to disk: ' + (res.error || 'unknown error'));
+        return;
+      }
     } catch(e) { console.error('Persist recording error:', e); }
   }
   showToast('Recording saved');
@@ -1900,16 +1908,27 @@ function hasAudioMagic(bytes){
   if(bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) return true;
   if(bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) return true;
   if(bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) return true;
+  if(bytes[0] === 0x66 && bytes[1] === 0x4C && bytes[2] === 0x61 && bytes[3] === 0x43) return true;
   if(bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0) return true;
   return false;
 }
 
+function readBlobPrefix(blob, len){
+  return new Promise(resolve => {
+    try {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result ? new Uint8Array(fr.result) : null);
+      fr.onerror = () => resolve(null);
+      fr.readAsArrayBuffer(blob.slice(0, len));
+    } catch(e){ resolve(null); }
+  });
+}
+
 async function isLikelyAudioBlob(blob){
   if(!blob || blob.size === 0) return false;
-  try {
-    const u8 = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
-    return hasAudioMagic(u8);
-  } catch(e){ return false; }
+  const u8 = await readBlobPrefix(blob, 12);
+  if(!u8 || u8.length < 4) return false;
+  return hasAudioMagic(u8);
 }
 
 async function backupRecordings(){
@@ -1962,37 +1981,53 @@ async function restoreRecordings(){
   if(!api) return;
   try {
     const result = await api.restoreRecordings();
-    if(result.success){
-      recordings.forEach(r => { if(r && r.url) URL.revokeObjectURL(r.url); });
-      if(api.clearRecordings){
-        try { await api.clearRecordings(); } catch(e){ console.error('Clear old recordings error:', e); }
-      }
-      recordings = [];
-      const toSave = [];
-      let added = 0;
-      let corrupt = 0;
-      for(const it of result.items){
-        if(!it.data) continue;
-        recordSeq++;
-        const blob = base64ToBlob(it.data, it.type);
-        const url = URL.createObjectURL(blob);
-        const isCorrupt = !(await isLikelyAudioBlob(blob));
-        if(isCorrupt) corrupt++;
-        const rec = { id: 'rec-' + recordSeq, name: it.name || ('Record ' + recordSeq), url, blob, corrupt: isCorrupt, dur: it.dur || '0:00', date: it.date || Date.now() };
-        recordings.push(rec);
-        if(!isCorrupt) toSave.push({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: rec.blob.type || 'audio/webm', data: it.data });
-        added++;
-      }
-      if(toSave.length && api.saveRecording){
-        await Promise.all(toSave.map(item => api.saveRecording(item).catch(e => console.error('Persist restored recording error:', e))));
-      }
-      renderRecordings();
-      showToast('Restored ' + added + ' recording(s), previous list cleared' + (corrupt ? ' (' + corrupt + ' corrupted skipped)' : ''));
-    } else if(result.canceled){
-      // do nothing
-    } else {
-      showToast('Restore failed: ' + result.error);
+    if(!result || !result.success){
+      if(result && result.canceled) return;
+      showToast('Restore failed: ' + ((result && result.error) || 'unknown error'));
+      return;
     }
+    const restored = [];
+    let corrupt = 0;
+    for(const it of result.items){
+      if(!it.data) continue;
+      recordSeq++;
+      const blob = base64ToBlob(it.data, it.type);
+      const isCorrupt = !(await isLikelyAudioBlob(blob));
+      if(isCorrupt) corrupt++;
+      restored.push({
+        it,
+        id: 'rec-' + recordSeq,
+        name: it.name || ('Record ' + recordSeq),
+        url: URL.createObjectURL(blob),
+        blob,
+        corrupt: isCorrupt,
+        dur: it.dur || '0:00',
+        date: it.date || Date.now()
+      });
+    }
+    if(restored.length === 0){
+      showToast('Restore failed: no valid recordings found in the selected file');
+      return;
+    }
+    const oldIds = recordings.map(r => r.id);
+    const toSave = restored.filter(x => !x.corrupt).map(x => ({
+      id: x.id, name: x.name, date: x.date, dur: x.dur, type: x.it.type || 'audio/webm', data: x.it.data
+    }));
+    let saveFailed = false;
+    if(toSave.length && api.saveRecording){
+      const results = await Promise.all(toSave.map(item => api.saveRecording(item).catch(e => {
+        console.error('Persist restored recording error:', e);
+        return { success: false };
+      })));
+      if(results.some(r => !r || r.success === false)) saveFailed = true;
+    }
+    if(!saveFailed && api.deleteRecording && oldIds.length){
+      await Promise.all(oldIds.map(id => api.deleteRecording(id).catch(() => {})));
+    }
+    recordings.forEach(r => { if(r && r.url) URL.revokeObjectURL(r.url); });
+    recordings = restored.map(x => ({ id: x.id, name: x.name, url: x.url, blob: x.blob, corrupt: x.corrupt, dur: x.dur, date: x.date }));
+    renderRecordings();
+    showToast('Restored ' + restored.length + ' recording(s)' + (corrupt ? ' (' + corrupt + ' corrupted skipped)' : ''));
   } catch(e) {
     showToast('Restore error: ' + e.message);
   }
