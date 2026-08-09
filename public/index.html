@@ -184,6 +184,8 @@ background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px
 display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
 .record-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(124,58,237,0.08)}
 .record-btn.recording{border-color:var(--danger);color:var(--danger);background:rgba(239,68,68,0.1)}
+.record-btn:focus,.record-btn:focus-visible{outline:none}
+.record-play:focus,.record-play:focus-visible,.record-del:focus,.record-del:focus-visible{outline:none}
 .record-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex-shrink:0;animation:recBlink 1s ease-in-out infinite}
 @keyframes recBlink{0%,100%{opacity:1}50%{opacity:.15}}
 .record-btn:not(.recording) .record-dot{background:var(--accent);animation:none}
@@ -1754,11 +1756,19 @@ function deleteRecording(id){
   renderRecordings();
 }
 
+function getPlayElement(){
+  if(!playEl){
+    playEl = document.createElement('audio');
+    playEl.style.display = 'none';
+    document.body.appendChild(playEl);
+  }
+  return playEl;
+}
+
 function stopPlayback(){
   if(playEl){
     try { playEl.pause(); } catch(e){}
-    try { playEl.src = ''; } catch(e){}
-    playEl = null;
+    try { playEl.removeAttribute('src'); playEl.load(); } catch(e){}
   }
   currentPlayId = null;
   updatePlayButtons();
@@ -1772,19 +1782,28 @@ async function togglePlayRecording(id){
 async function playRecording(id){
   const rec = recordings.find(r => r.id === id);
   if(!rec) return;
-  stopPlayback();
-  playEl = new Audio();
-  playEl.src = rec.url;
-  playEl.onended = () => { currentPlayId = null; updatePlayButtons(); };
-  playEl.onerror = () => { showToast('Playback error'); stopPlayback(); };
+  const el = getPlayElement();
+  el.onended = null;
+  el.onerror = null;
+  try { el.pause(); el.removeAttribute('src'); el.load(); } catch(e){}
+  let failed = false;
+  const fail = (msg) => {
+    if(failed) return;
+    failed = true;
+    showToast(msg || 'Playback error');
+    stopPlayback();
+  };
   const outId = getCurrentOutputDeviceId();
-  if(outId && playEl.setSinkId){
-    try { await playEl.setSinkId(outId === 'default' ? '' : outId); }
+  if(outId && el.setSinkId){
+    try { await el.setSinkId(outId === 'default' ? '' : outId); }
     catch(e){ console.warn('Playback setSinkId failed:', e); }
   }
+  el.onerror = () => fail('Playback error');
+  el.onended = () => { currentPlayId = null; updatePlayButtons(); };
+  el.src = rec.url;
   currentPlayId = id;
   updatePlayButtons();
-  playEl.play().catch(e => { showToast('Playback error: ' + e.message); stopPlayback(); });
+  el.play().catch(e => fail('Playback error: ' + e.message));
 }
 
 function updatePlayButtons(){
