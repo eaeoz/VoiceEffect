@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('api', {
   restoreRecordings: () => ipcRenderer.invoke('restore-recordings'),
   saveRecording: (rec) => ipcRenderer.invoke('save-recording', rec),
   deleteRecording: (id) => ipcRenderer.invoke('delete-recording', id),
+  renameRecording: (id, name) => ipcRenderer.invoke('rename-recording', id, name),
+  reorderRecordings: (ids) => ipcRenderer.invoke('reorder-recordings', ids),
   loadRecordings: () => ipcRenderer.invoke('load-recordings'),
   clearRecordings: () => ipcRenderer.invoke('clear-recordings'),
   getSystemOutputDevices: () => ipcRenderer.invoke('get-system-output-devices'),

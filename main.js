@@ -829,6 +829,40 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('rename-recording', async (event, id, name) => {
+    try {
+      const index = loadRecordingsIndex();
+      const i = index.findIndex(x => x.id === id);
+      if (i !== -1) {
+        const newName = String(name || '').trim();
+        if (newName) index[i].name = newName;
+        saveRecordingsIndex(index);
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('reorder-recordings', async (event, ids) => {
+    try {
+      const index = loadRecordingsIndex();
+      const order = Array.isArray(ids) ? ids : [];
+      const byId = new Map(index.map(e => [e.id, e]));
+      const reordered = [];
+      for (const id of order) {
+        if (byId.has(id)) reordered.push(byId.get(id));
+      }
+      for (const entry of index) {
+        if (!order.includes(entry.id)) reordered.push(entry);
+      }
+      saveRecordingsIndex(reordered);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('load-recordings', async () => {
     try {
       const index = loadRecordingsIndex();

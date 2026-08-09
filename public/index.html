@@ -129,7 +129,7 @@ background:var(--accent);cursor:pointer;box-shadow:0 0 4px var(--accent-glow)}
 
 .side-panel{width:240px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
 .side-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-padding:12px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(20px)}
+padding:12px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(20px);min-height:0;overflow:hidden}
 .side-card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary);margin-bottom:2px}
 
 .device-select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);
@@ -203,8 +203,14 @@ display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
 .records-list{overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:2px}
 .records-empty{font-size:9px;color:var(--text-secondary);text-align:center;padding:10px 0;opacity:.6}
 .record-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--border);
-border-radius:var(--radius-xs);transition:.15s;animation:fadeIn .25s ease}
+border-radius:var(--radius-xs);transition:.15s;animation:fadeIn .25s ease;cursor:pointer}
 .record-item:hover{border-color:var(--accent);background:rgba(124,58,237,0.06)}
+.record-item.editing{cursor:default}
+.record-item.editing .record-name{cursor:text;color:var(--accent);text-decoration:underline dotted}
+.record-item.editing .record-name:hover{color:var(--accent)}
+.record-item.dragging{opacity:.4;border-color:var(--accent)}
+.record-item.drop-before{border-top:2px solid var(--accent)}
+.record-item.drop-after{border-bottom:2px solid var(--accent)}
 .record-item.playing{border-color:var(--accent);background:rgba(124,58,237,0.15)}
 .record-item.corrupt{border-color:rgba(239,68,68,0.45);background:rgba(239,68,68,0.06)}
 .record-item.corrupt .record-name{color:var(--danger)}
@@ -214,6 +220,8 @@ cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:
 .record-play:hover{box-shadow:0 0 10px var(--accent-glow)}
 .record-play.playing{background:var(--danger)}
 .record-name{flex:1;font-size:10px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.record-rename-input{flex:1;min-width:0;font-size:10px;padding:2px 5px;border:1px solid var(--accent);
+border-radius:var(--radius-xs);background:var(--bg-primary);color:var(--text-primary);outline:none}
 .record-item.playing .record-name{color:var(--accent)}
 .record-dur{font-size:9px;color:var(--text-secondary);font-variant-numeric:tabular-nums;flex-shrink:0}
 .record-del{width:20px;height:20px;flex-shrink:0;border:none;background:transparent;color:var(--danger);
@@ -1711,6 +1719,11 @@ async function getSystemStream(){
 let editMode = false;
 let playEl = null;
 let currentPlayId = null;
+let dragRecIndex = null;
+let dragRecId = null;
+let dropTargetId = null;
+let dropBefore = false;
+let suppressClick = false;
 
 function pickMime(){
   const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
@@ -2046,14 +2059,119 @@ function renderRecordings(){
     const item = document.createElement('div');
     item.className = 'record-item' + (editMode ? ' editing' : '') + (r.id === currentPlayId ? ' playing' : '') + (r.corrupt ? ' corrupt' : '');
     item.dataset.id = r.id;
+    const nameHtml = editMode
+      ? `<span class="record-name" title="Click to rename" onclick="event.stopPropagation(); startRenameRecord('${r.id}')">${r.name}</span>`
+      : `<span class="record-name">${r.corrupt ? '&#9888; ' + r.name : r.name}</span>`;
     item.innerHTML = `
-      <button class="record-play" onclick="togglePlayRecording('${r.id}')" title="Play">&#9654;</button>
-      <span class="record-name">${r.corrupt ? '&#9888; ' + r.name : r.name}</span>
+      <button class="record-play" title="Play">&#9654;</button>
+      ${nameHtml}
       <span class="record-dur">${r.corrupt ? 'corrupt' : r.dur}</span>
-      <button class="record-del" onclick="deleteRecording('${r.id}')" title="Delete">&#10005;</button>
+      <button class="record-del" title="Delete">&#10005;</button>
     `;
+    const playBtn = item.querySelector('.record-play');
+    playBtn.addEventListener('click', e => { e.stopPropagation(); if(suppressClick) return; togglePlayRecording(r.id); });
+    const delBtn = item.querySelector('.record-del');
+    delBtn.addEventListener('click', e => { e.stopPropagation(); deleteRecording(r.id); });
+    item.addEventListener('click', () => {
+      if(editMode || suppressClick) return;
+      togglePlayRecording(r.id);
+    });
+    item.draggable = true;
+    item.addEventListener('dragstart', e => {
+      dragRecIndex = recordings.indexOf(r);
+      dragRecId = r.id;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', r.id);
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 150);
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      document.querySelectorAll('.record-item').forEach(it => it.classList.remove('drop-before', 'drop-after'));
+      dragRecIndex = null;
+      dragRecId = null;
+      dropTargetId = null;
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      if(dragRecId === null) return;
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.record-item').forEach(it => it.classList.remove('drop-before', 'drop-after'));
+      const rect = item.getBoundingClientRect();
+      dropBefore = e.clientY < rect.top + rect.height / 2;
+      dropTargetId = r.id;
+      item.classList.add(dropBefore ? 'drop-before' : 'drop-after');
+    });
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drop-before', 'drop-after');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if(dragRecId === null) return;
+      const from = recordings.findIndex(x => x.id === dragRecId);
+      const to = recordings.findIndex(x => x.id === dropTargetId);
+      let moved = false;
+      if(from !== -1 && to !== -1 && from !== to){
+        let newIndex = dropBefore ? to : to + 1;
+        if(from < newIndex) newIndex--;
+        const [m] = recordings.splice(from, 1);
+        recordings.splice(newIndex, 0, m);
+        moved = true;
+      }
+      document.querySelectorAll('.record-item').forEach(it => it.classList.remove('drop-before', 'drop-after'));
+      dragRecId = null;
+      dropTargetId = null;
+      if(moved) persistRecordOrder();
+      else renderRecordings();
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 150);
+    });
     list.appendChild(item);
   });
+}
+
+function persistRecordOrder(){
+  renderRecordings();
+  if(api && api.reorderRecordings){
+    api.reorderRecordings(recordings.map(x => x.id)).catch(e => console.error('Persist record order error:', e));
+  }
+}
+
+function startRenameRecord(id){
+  const rec = recordings.find(r => r.id === id);
+  if(!rec) return;
+  const item = document.querySelector('.record-item[data-id="' + id + '"]');
+  if(!item) return;
+  const nameEl = item.querySelector('.record-name');
+  if(!nameEl) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'record-rename-input';
+  input.value = rec.name;
+  input.maxLength = 200;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let committed = false;
+  const finish = (save) => {
+    if(committed) return;
+    committed = true;
+    const val = save ? input.value.trim() : rec.name;
+    if(save && val && val !== rec.name){
+      rec.name = val;
+      if(api && api.renameRecording) api.renameRecording(rec.id, rec.name).catch(e => console.error('Rename recording error:', e));
+    }
+    renderRecordings();
+  };
+  input.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if(e.key === 'Enter') finish(true);
+    else if(e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('click', e => e.stopPropagation());
 }
 
 function toggleEditMode(){
@@ -2196,6 +2314,31 @@ function setupEventListeners(){
   document.querySelectorAll('.modal-overlay').forEach(m => {
     m.addEventListener('click', e => { if(e.target === m) m.classList.remove('show'); });
   });
+  const recordsList = $('recordsList');
+  if(recordsList){
+    recordsList.addEventListener('dragover', e => {
+      if(dragRecId === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    recordsList.addEventListener('drop', e => {
+      if(dragRecId === null) return;
+      e.preventDefault();
+      const from = recordings.findIndex(x => x.id === dragRecId);
+      let moved = false;
+      if(from !== -1 && recordings.length > 1){
+        const [m] = recordings.splice(from, 1);
+        recordings.push(m);
+        moved = true;
+      }
+      dragRecId = null;
+      dropTargetId = null;
+      if(moved) persistRecordOrder();
+      else renderRecordings();
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 150);
+    });
+  }
   if(api){
     setInterval(async () => {
       try {
