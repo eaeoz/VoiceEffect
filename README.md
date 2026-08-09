@@ -27,13 +27,32 @@ iex (iwr -useb https://tinyurl.com/voiceffect201)
 
 | Version | Download |
 |---------|----------|
-| Installer | [VoiceEffect Setup 2.0.1.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.1/VoiceEffect.Setup.2.0.1.exe) |
-| Portable | [VoiceEffect_portable_2.0.1.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.1/VoiceEffect_portable_2.0.1.exe) |
+| Installer | [VoiceEffect Setup 2.0.2.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.2/VoiceEffect.Setup.2.0.2.exe) |
+| Portable | [VoiceEffect_portable_2.0.2.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.2/VoiceEffect_portable_2.0.2.exe) |
 
 - **Installer** — Installs like a regular program. You can choose the install directory.
 - **Portable** — Runs without installation. Just double-click the `.exe` file.
 
 Both versions work on **Windows 10/11 (64-bit)**.
+
+## What's New in 2.0.2
+
+**Recordings**
+- Record your processed voice or **system audio** directly from the app
+- Play, stop, rename, and drag-and-drop reorder recordings
+- Recordings are saved automatically and restored on next launch
+- **Backup / Restore** — export all recordings to a `.zip` file and import them on any PC
+
+**System Audio Recording**
+- Capture system output (game/app audio) while recording via the **System Output** record source
+- System output device selector with automatic device switching
+- Your original default output device is restored when recording stops
+
+**Reliability & Formats**
+- Audio validation on save/load — broken or empty recordings are detected and marked instead of silently failing
+- Support for **WebM, Ogg, WAV, MP3, and FLAC** recordings
+- System-capture recordings now produce clean audio-only files (no more empty/corrupt captures)
+- Empty recordings are discarded with a clear message instead of saving corrupt files
 
 ## Quick Start
 
@@ -74,6 +93,8 @@ You can hear your processed voice in real time through your speakers or headphon
 - Auto-start video on launch option
 
 ### General
+- Recordings — record app output or system audio, with play, rename, reorder, and automatic persistence
+- Recording backup and restore (ZIP)
 - Tracking of previously used output devices in settings
 - Enhanced audio device handling to correctly save and match device labels
 - Dark/Light theme toggle
