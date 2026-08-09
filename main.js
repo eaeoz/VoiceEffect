@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Menu, Tray, nativeImage, dialog, screen, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, Tray, nativeImage, dialog, screen, session, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -192,6 +192,8 @@ function loadSettings() {
     previousOutputDeviceLabel: null,
     inputVolume: 80,
     outputVolume: 80,
+    recordSource: 'app',
+    systemOutputDevice: null,
     theme: 'dark',
     autoStart: false,
     startMinimized: false,
@@ -384,6 +386,7 @@ function createTray() {
 
 let audioEngine = null;
 let virtualAdapter = null;
+const systemAudioRouting = require('./system-audio-routing');
 let lastCpuUsage = process.cpuUsage();
 let lastCpuTime = Date.now();
 let appHttpServer = null;
@@ -824,6 +827,33 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('get-system-output-devices', async () => {
+    try {
+      return { success: true, devices: await systemAudioRouting.getOutputs() };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('set-system-default-output', async (event, name) => {
+    try {
+      const result = await systemAudioRouting.setDefaultOutput(String(name));
+      systemAudioRouting.persistOverride();
+      return { success: true, data: result };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('restore-system-default-output', async () => {
+    try {
+      await systemAudioRouting.restoreDefaultOutput();
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('get-system-stats', async () => {
     const now = Date.now();
     const elapsedMs = now - lastCpuTime;
@@ -1027,15 +1057,32 @@ app.whenReady().then(() => {
 
   startAppServer();
 
+  systemAudioRouting.init(app.getPath('userData'));
+  systemAudioRouting.restorePendingOnStart();
+
   const ses = session.defaultSession;
   ses.setPermissionRequestHandler((webContents, permission, callback) => {
-    if (permission === 'media' || permission === 'mediaKeySystem') {
+    if (permission === 'media' || permission === 'mediaKeySystem' || permission === 'display-capture') {
       callback(true);
     } else {
       callback(false);
     }
   });
   ses.setPermissionCheckHandler(() => true);
+
+  ses.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] })
+      .then((sources) => {
+        if (sources && sources.length > 0) {
+          callback({ video: sources[0], audio: 'loopback' });
+        } else {
+          callback({ video: null });
+        }
+      })
+      .catch(() => {
+        callback({ video: null });
+      });
+  });
 
   createWindow();
   createTray();
@@ -1051,6 +1098,9 @@ app.on('before-quit', () => {
   isQuitting = true;
   if (audioEngine) {
     try { audioEngine.stop(); } catch (e) {}
+  }
+  if (systemAudioRouting.currentOverride) {
+    systemAudioRouting.restoreDefaultOutputSync();
   }
 });
 

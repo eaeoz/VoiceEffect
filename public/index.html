@@ -178,6 +178,10 @@ background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px
 .preset-add:hover{border-color:var(--accent);color:var(--accent)}
 
 .record-divider{border-top:1px solid var(--border);margin:8px 0 2px;padding-top:8px}
+.record-source-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;min-height:20px}
+.record-source-label{font-size:10px;color:var(--text-secondary);flex:1}
+.record-source-hint{font-size:10px;color:var(--text-secondary);opacity:0.7;margin-bottom:4px}
+.record-source-val{font-size:10px;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
 .record-controls{display:flex;gap:6px;align-items:center}
 .record-btn{flex:1;padding:7px 8px;border:1px dashed var(--border);border-radius:var(--radius-xs);
 background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px;font-weight:600;transition:.2s;
@@ -194,6 +198,8 @@ display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
 .record-edit-label{font-size:10px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px;user-select:none}
 .record-edit-label:hover{color:var(--accent)}
 .record-edit-label input{accent-color:var(--accent);cursor:pointer}
+.record-del-dup{background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-xs);font-size:9px;padding:1px 6px;cursor:pointer;transition:.2s;white-space:nowrap}
+.record-del-dup:hover{border-color:var(--accent);color:var(--accent)}
 .records-list{overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:2px}
 .records-empty{font-size:9px;color:var(--text-secondary);text-align:center;padding:10px 0;opacity:.6}
 .record-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--border);
@@ -603,6 +609,16 @@ background-repeat:no-repeat;background-position:right 6px center}
         <button class="preset-add" onclick="deleteSelectedProfile()" style="margin-top:6px">Delete Selected</button>
         <div class="record-divider"></div>
         <div class="side-card-title">Records</div>
+        <div class="record-source-row">
+          <span class="record-source-label">Record Device</span>
+          <div class="adapter-toggle" id="recordSourceToggle" onclick="toggleRecordSource()" title="Switch record source"></div>
+          <span class="record-source-val" id="recordSourceVal">App Output</span>
+        </div>
+        <div class="record-source-row" id="systemOutputRow" style="display:none">
+          <span class="record-source-label">System Output</span>
+          <select class="device-select" id="systemOutputDevice" onchange="changeSystemOutputDevice()" style="padding:4px 6px;font-size:11px"></select>
+        </div>
+        <div class="record-source-hint" id="systemOutputHint" style="display:none">System audio plays through this device while recording.</div>
         <div class="record-controls">
           <button class="record-btn" id="recordBtn" onclick="toggleRecord()">
             <span class="record-dot"></span>
@@ -614,6 +630,7 @@ background-repeat:no-repeat;background-position:right 6px center}
           <label class="record-edit-label">
             <input type="checkbox" id="editRecordsChk" onchange="toggleEditMode()"> edit
           </label>
+          <button class="record-del-dup" onclick="removeDuplicateRecordings()" title="Remove duplicate recordings">Remove Duplicates</button>
         </div>
         <div class="records-list" id="recordsList"></div>
       </div>
@@ -1400,6 +1417,13 @@ async function loadSettings(){
       });
     }
     updateAdapterUI();
+    if(s.recordSource) recordSource = s.recordSource;
+    updateRecordSourceUI();
+    if($('systemOutputDevice') && s.systemOutputDevice){
+      const so = Array.from($('systemOutputDevice').options).find(o => o.value === s.systemOutputDevice);
+      if(so) $('systemOutputDevice').value = s.systemOutputDevice;
+    }
+    loadSystemOutputDevices();
     if(s.videoDevice && $('videoDeviceSelect')) {
       try { $('videoDeviceSelect').value = s.videoDevice; } catch(e) {}
     }
@@ -1618,6 +1642,68 @@ async function loadPresets(){
 let recorder = { active: false, mediaRecorder: null, recDest: null, micStream: null, usingLiveGraph: false, startTime: 0, timer: null };
 let recordings = [];
 let recordSeq = 0;
+let recordSource = 'app';
+let systemOutputDevices = [];
+
+function toggleRecordSource(){
+  setRecordSource(recordSource === 'app' ? 'system' : 'app');
+}
+
+function setRecordSource(mode){
+  recordSource = mode === 'system' ? 'system' : 'app';
+  state.settings.recordSource = recordSource;
+  if(api) api.saveSettings(state.settings);
+  if(recorder.active){ stopRecord(); showToast('Recording stopped (device changed)'); }
+  updateRecordSourceUI();
+}
+
+async function loadSystemOutputDevices(){
+  const sel = $('systemOutputDevice');
+  if(!sel) return;
+  sel.innerHTML = '<option value="default">Default (system)</option>';
+  if(!api || !api.getSystemOutputDevices) return;
+  try {
+    const res = await api.getSystemOutputDevices();
+    if(!res.success) { console.warn('[Audio] system output devices:', res.error); return; }
+    systemOutputDevices = res.devices || [];
+    systemOutputDevices.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.name;
+      opt.textContent = d.name;
+      sel.appendChild(opt);
+    });
+    if(state.settings.systemOutputDevice){
+      if(sel.querySelector(`option[value="${CSS.escape(state.settings.systemOutputDevice)}"]`)){
+        sel.value = state.settings.systemOutputDevice;
+      }
+    }
+  } catch(e) { console.warn('[Audio] failed to load system output devices:', e.message); }
+}
+
+function changeSystemOutputDevice(){
+  const sel = $('systemOutputDevice');
+  if(!sel) return;
+  state.settings.systemOutputDevice = sel.value;
+  if(api) api.saveSettings(state.settings);
+}
+
+function updateRecordSourceUI(){
+  const t = $('recordSourceToggle');
+  const val = $('recordSourceVal');
+  if(t) t.classList.toggle('on', recordSource === 'system');
+  if(val) val.textContent = recordSource === 'system' ? 'System Output' : 'App Output';
+  const row = $('systemOutputRow');
+  const hint = $('systemOutputHint');
+  if(row) row.style.display = recordSource === 'system' ? 'flex' : 'none';
+  if(hint) hint.style.display = recordSource === 'system' ? 'block' : 'none';
+}
+
+async function getSystemStream(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) throw new Error('System capture unavailable');
+  const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  stream.getVideoTracks().forEach(t => t.stop());
+  return stream;
+}
 let editMode = false;
 let playEl = null;
 let currentPlayId = null;
@@ -1651,23 +1737,29 @@ async function startRecord(){
   try {
     let stream = null;
     let usingLiveGraph = false;
-    if(audioCtx && outputGain && state.running){
-      try {
-        recorder.recDest = audioCtx.createMediaStreamDestination();
-        outputGain.connect(recorder.recDest);
-        stream = recorder.recDest.stream;
-        usingLiveGraph = true;
-      } catch(e){ usingLiveGraph = false; }
-    }
-    if(!stream){
-      const constraints = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } };
-      const saved = state.settings.inputDevice;
-      if(saved && saved !== 'default'){
-        const match = browserDeviceIds.inputs.find(d => d.deviceId === saved);
-        if(match) constraints.audio.deviceId = { exact: saved };
-      }
-      recorder.micStream = await navigator.mediaDevices.getUserMedia(constraints);
+    if(recordSource === 'system'){
+      await prepSystemCapture();
+      recorder.micStream = await getSystemStream();
       stream = recorder.micStream;
+    } else {
+      if(audioCtx && outputGain && state.running){
+        try {
+          recorder.recDest = audioCtx.createMediaStreamDestination();
+          outputGain.connect(recorder.recDest);
+          stream = recorder.recDest.stream;
+          usingLiveGraph = true;
+        } catch(e){ usingLiveGraph = false; }
+      }
+      if(!stream){
+        const constraints = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } };
+        const saved = state.settings.inputDevice;
+        if(saved && saved !== 'default'){
+          const match = browserDeviceIds.inputs.find(d => d.deviceId === saved);
+          if(match) constraints.audio.deviceId = { exact: saved };
+        }
+        recorder.micStream = await navigator.mediaDevices.getUserMedia(constraints);
+        stream = recorder.micStream;
+      }
     }
     recorder.usingLiveGraph = usingLiveGraph;
     const chunks = [];
@@ -1675,6 +1767,7 @@ async function startRecord(){
     mr.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
     mr.onstop = () => {
       cleanupRecorder();
+      restoreSystemCapture();
       const type = chunks[0] ? chunks[0].type : 'audio/webm';
       const blob = new Blob(chunks, { type });
       addRecording(blob);
@@ -1687,7 +1780,29 @@ async function startRecord(){
     showToast('Recording started');
   } catch(e) {
     cleanupRecorder();
+    restoreSystemCapture();
     showToast('Record error: ' + e.message);
+  }
+}
+
+async function prepSystemCapture(){
+  if(!api || !api.setSystemDefaultOutput) return;
+  const sel = $('systemOutputDevice');
+  const name = sel ? sel.value : (state.settings.systemOutputDevice || 'default');
+  if(!name || name === 'default') return;
+  try {
+    const res = await api.setSystemDefaultOutput(name);
+    if(!res.success){
+      showToast('Note: system audio stays on current output (' + (res.error || 'switch failed') + ')');
+    }
+  } catch(e){
+    showToast('Note: system audio stays on current output (' + e.message + ')');
+  }
+}
+
+async function restoreSystemCapture(){
+  if(api && api.restoreSystemDefaultOutput){
+    try { await api.restoreSystemDefaultOutput(); } catch(e){}
   }
 }
 
@@ -1763,13 +1878,15 @@ async function backupRecordings(){
   if(recordings.length === 0){ showToast('No recordings to backup'); return; }
   try {
     const items = [];
+    let skipped = 0;
     for(const r of recordings){
-      if(!r.blob){ showToast('Cannot backup: a recording is missing data'); return; }
+      if(!r || !r.blob || r.blob.size === 0){ skipped++; continue; }
       items.push({ name: r.name, date: r.date, dur: r.dur, type: r.blob.type, data: await blobToBase64(r.blob) });
     }
+    if(items.length === 0){ showToast('No valid recordings to backup'); return; }
     const result = await api.backupRecordings(items);
     if(result.success){
-      showToast('Backed up ' + result.count + ' recording(s)!');
+      showToast('Backed up ' + result.count + ' recording(s)' + (skipped ? ', skipped ' + skipped + ' broken/empty' : '') + '!');
     } else if(result.canceled){
       // do nothing
     } else {
@@ -1794,7 +1911,7 @@ async function loadRecordingsFromDisk(){
     result.items.forEach(it => {
       const blob = base64ToBlob(it.data, it.type);
       const url = URL.createObjectURL(blob);
-      recordings.push({ id: it.id, name: it.name, url, blob, dur: it.dur, date: it.date });
+      recordings.push({ id: it.id, name: it.name, url, blob, dur: it.dur || '0:00', date: it.date });
     });
     renderRecordings();
   } catch(e) { console.error('Load recordings error:', e); }
@@ -1805,18 +1922,36 @@ async function restoreRecordings(){
   try {
     const result = await api.restoreRecordings();
     if(result.success){
-      result.items.forEach(it => {
+      const existing = new Set();
+      for(const r of recordings){
+        if(r && r.blob && r.blob.size > 0){
+          try { existing.add(await blobToBase64(r.blob)); } catch(e){}
+        }
+      }
+      const toSave = [];
+      let skipped = 0;
+      for(const it of result.items){
+        if(!it.data || existing.has(it.data)){
+          skipped++;
+          continue;
+        }
+        existing.add(it.data);
         recordSeq++;
         const blob = base64ToBlob(it.data, it.type);
         const url = URL.createObjectURL(blob);
         const rec = { id: 'rec-' + recordSeq, name: it.name || ('Record ' + recordSeq), url, blob, dur: it.dur || '0:00', date: it.date || Date.now() };
         recordings.push(rec);
-        if(api && api.saveRecording){
-          api.saveRecording({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: rec.blob.type || 'audio/webm', data: it.data }).catch(e => console.error('Persist restored recording error:', e));
-        }
-      });
+        toSave.push({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: rec.blob.type || 'audio/webm', data: it.data });
+      }
+      if(toSave.length && api.saveRecording){
+        await Promise.all(toSave.map(item => api.saveRecording(item).catch(e => console.error('Persist restored recording error:', e))));
+      }
       renderRecordings();
-      showToast('Restored ' + result.count + ' recording(s)!');
+      if(skipped > 0){
+        showToast('Restored ' + toSave.length + ' recording(s), skipped ' + skipped + ' already existing');
+      } else {
+        showToast('Restored ' + toSave.length + ' recording(s)!');
+      }
     } else if(result.canceled){
       // do nothing
     } else {
@@ -1824,6 +1959,38 @@ async function restoreRecordings(){
     }
   } catch(e) {
     showToast('Restore error: ' + e.message);
+  }
+}
+
+async function removeDuplicateRecordings(){
+  if(recordings.length === 0){ showToast('No recordings to check'); return; }
+  try {
+    const seen = new Map();
+    let removed = 0;
+    for(let i = recordings.length - 1; i >= 0; i--){
+      const r = recordings[i];
+      if(!r || !r.blob){
+        if(r && r.url) URL.revokeObjectURL(r.url);
+        if(api && api.deleteRecording) api.deleteRecording(r.id).catch(() => {});
+        recordings.splice(i, 1);
+        removed++;
+        continue;
+      }
+      let key = '';
+      try { key = await blobToBase64(r.blob); } catch(e) { key = r.id; }
+      if(seen.has(key)){
+        if(r.url) URL.revokeObjectURL(r.url);
+        if(api && api.deleteRecording) api.deleteRecording(r.id).catch(() => {});
+        recordings.splice(i, 1);
+        removed++;
+      } else {
+        seen.set(key, true);
+      }
+    }
+    renderRecordings();
+    showToast(removed > 0 ? 'Removed ' + removed + ' duplicate recording(s)' : 'No duplicates found');
+  } catch(e) {
+    showToast('Remove duplicates error: ' + e.message);
   }
 }
 
@@ -1890,6 +2057,11 @@ async function togglePlayRecording(id){
 async function playRecording(id){
   const rec = recordings.find(r => r.id === id);
   if(!rec) return;
+  if(!rec.blob || rec.blob.size === 0){
+    showToast('This recording is empty or corrupted');
+    return;
+  }
+  if(!rec.url) rec.url = URL.createObjectURL(rec.blob);
   const el = getPlayElement();
   el.onended = null;
   el.onerror = null;

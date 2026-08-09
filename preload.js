@@ -39,6 +39,9 @@ contextBridge.exposeInMainWorld('api', {
   saveRecording: (rec) => ipcRenderer.invoke('save-recording', rec),
   deleteRecording: (id) => ipcRenderer.invoke('delete-recording', id),
   loadRecordings: () => ipcRenderer.invoke('load-recordings'),
+  getSystemOutputDevices: () => ipcRenderer.invoke('get-system-output-devices'),
+  setSystemDefaultOutput: (name) => ipcRenderer.invoke('set-system-default-output', name),
+  restoreSystemDefaultOutput: () => ipcRenderer.invoke('restore-system-default-output'),
 
   // External
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
