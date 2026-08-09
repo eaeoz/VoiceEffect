@@ -177,6 +177,39 @@ cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content
 background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px;transition:.2s}
 .preset-add:hover{border-color:var(--accent);color:var(--accent)}
 
+.record-divider{border-top:1px solid var(--border);margin:8px 0 2px;padding-top:8px}
+.record-controls{display:flex;gap:6px;align-items:center}
+.record-btn{flex:1;padding:7px 8px;border:1px dashed var(--border);border-radius:var(--radius-xs);
+background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px;font-weight:600;transition:.2s;
+display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
+.record-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(124,58,237,0.08)}
+.record-btn.recording{border-color:var(--danger);color:var(--danger);background:rgba(239,68,68,0.1)}
+.record-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex-shrink:0;animation:recBlink 1s ease-in-out infinite}
+@keyframes recBlink{0%,100%{opacity:1}50%{opacity:.15}}
+.record-btn:not(.recording) .record-dot{background:var(--accent);animation:none}
+.record-time{font-size:10px;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums;min-width:32px;text-align:right}
+.record-edit-row{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:5px;min-height:16px}
+.record-edit-label{font-size:10px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px;user-select:none}
+.record-edit-label:hover{color:var(--accent)}
+.record-edit-label input{accent-color:var(--accent);cursor:pointer}
+.records-list{overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:2px}
+.records-empty{font-size:9px;color:var(--text-secondary);text-align:center;padding:10px 0;opacity:.6}
+.record-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--border);
+border-radius:var(--radius-xs);transition:.15s;animation:fadeIn .25s ease}
+.record-item:hover{border-color:var(--accent);background:rgba(124,58,237,0.06)}
+.record-item.playing{border-color:var(--accent);background:rgba(124,58,237,0.15)}
+.record-play{width:26px;height:26px;flex-shrink:0;border:none;border-radius:50%;background:var(--accent);color:#fff;
+cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;transition:.2s}
+.record-play:hover{box-shadow:0 0 10px var(--accent-glow)}
+.record-play.playing{background:var(--danger)}
+.record-name{flex:1;font-size:10px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.record-item.playing .record-name{color:var(--accent)}
+.record-dur{font-size:9px;color:var(--text-secondary);font-variant-numeric:tabular-nums;flex-shrink:0}
+.record-del{width:20px;height:20px;flex-shrink:0;border:none;background:transparent;color:var(--danger);
+cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:.15s;display:none}
+.record-del:hover{background:rgba(239,68,68,0.2)}
+.record-item.editing .record-del{display:flex}
+
 .bottom-bar{display:flex;gap:8px;align-items:center;flex-shrink:0;padding:4px 0}
 
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);
@@ -566,6 +599,21 @@ background-repeat:no-repeat;background-position:right 6px center}
           <button class="panel-btn panel-btn-accent" onclick="quickSaveProfile()" style="white-space:nowrap" title="Save current settings">&#128190; Save</button>
         </div>
         <button class="preset-add" onclick="deleteSelectedProfile()" style="margin-top:6px">Delete Selected</button>
+        <div class="record-divider"></div>
+        <div class="side-card-title">Records</div>
+        <div class="record-controls">
+          <button class="record-btn" id="recordBtn" onclick="toggleRecord()">
+            <span class="record-dot"></span>
+            <span id="recordBtnLabel">Record</span>
+          </button>
+          <span class="record-time" id="recordTime"></span>
+        </div>
+        <div class="record-edit-row">
+          <label class="record-edit-label">
+            <input type="checkbox" id="editRecordsChk" onchange="toggleEditMode()"> edit
+          </label>
+        </div>
+        <div class="records-list" id="recordsList"></div>
       </div>
     </div>
   </div>
@@ -1254,6 +1302,7 @@ async function startAudio(){
 }
 
 function stopAudio(){
+  if(recorder && recorder.active) stopRecord();
   if(micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
   if(workletNode) { workletNode.disconnect(); workletNode = null; }
   if(micSource) { micSource.disconnect(); micSource = null; }
@@ -1546,6 +1595,205 @@ async function onProfileSelectChange(){
 async function loadPresets(){
   try { return await api.getPresets(); }
   catch(e) { return []; }
+}
+
+// ===== RECORDINGS =====
+let recorder = { active: false, mediaRecorder: null, recDest: null, micStream: null, usingLiveGraph: false, startTime: 0, timer: null };
+let recordings = [];
+let recordSeq = 0;
+let editMode = false;
+let playEl = null;
+let currentPlayId = null;
+
+function pickMime(){
+  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+  for(const t of types){ if(MediaRecorder && MediaRecorder.isTypeSupported(t)) return t; }
+  return '';
+}
+
+function fmtDuration(ms){
+  const s = Math.max(0, Math.round(ms / 1000));
+  return Math.floor(s / 60) + ':' + ((s % 60 < 10 ? '0' : '') + (s % 60));
+}
+
+function getCurrentOutputDeviceId(){
+  if(state.adapterEnabled && state.adapterInstalled){
+    const v = browserDeviceIds.outputs.find(d => d.label && (d.label.includes('VB-Audio') || d.label.includes('VBCABLE') || d.label.includes('Virtual Cable')));
+    if(v) return v.deviceId;
+  }
+  const sel = $('outputDevice');
+  return sel ? sel.value : '';
+}
+
+function toggleRecord(){
+  if(recorder.active){ stopRecord(); return; }
+  startRecord();
+}
+
+async function startRecord(){
+  try {
+    let stream = null;
+    let usingLiveGraph = false;
+    if(audioCtx && outputGain && state.running){
+      try {
+        recorder.recDest = audioCtx.createMediaStreamDestination();
+        outputGain.connect(recorder.recDest);
+        stream = recorder.recDest.stream;
+        usingLiveGraph = true;
+      } catch(e){ usingLiveGraph = false; }
+    }
+    if(!stream){
+      const constraints = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } };
+      const saved = state.settings.inputDevice;
+      if(saved && saved !== 'default'){
+        const match = browserDeviceIds.inputs.find(d => d.deviceId === saved);
+        if(match) constraints.audio.deviceId = { exact: saved };
+      }
+      recorder.micStream = await navigator.mediaDevices.getUserMedia(constraints);
+      stream = recorder.micStream;
+    }
+    recorder.usingLiveGraph = usingLiveGraph;
+    const chunks = [];
+    const mr = new MediaRecorder(stream, { mimeType: pickMime() });
+    mr.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+    mr.onstop = () => {
+      cleanupRecorder();
+      const type = chunks[0] ? chunks[0].type : 'audio/webm';
+      const blob = new Blob(chunks, { type });
+      addRecording(blob);
+    };
+    mr.start(250);
+    recorder.mediaRecorder = mr;
+    recorder.active = true;
+    recorder.startTime = Date.now();
+    updateRecordBtn(true);
+    showToast('Recording started');
+  } catch(e) {
+    cleanupRecorder();
+    showToast('Record error: ' + e.message);
+  }
+}
+
+function stopRecord(){
+  if(recorder.mediaRecorder) recorder.mediaRecorder.stop();
+  recorder.active = false;
+  updateRecordBtn(false);
+}
+
+function cleanupRecorder(){
+  if(recorder.recDest && recorder.usingLiveGraph && outputGain){
+    try { outputGain.disconnect(recorder.recDest); } catch(e){}
+  }
+  recorder.recDest = null;
+  recorder.usingLiveGraph = false;
+  if(recorder.micStream){
+    try { recorder.micStream.getTracks().forEach(t => t.stop()); } catch(e){}
+    recorder.micStream = null;
+  }
+  recorder.mediaRecorder = null;
+}
+
+function updateRecordBtn(recording){
+  const btn = $('recordBtn');
+  const label = $('recordBtnLabel');
+  const timeEl = $('recordTime');
+  if(!btn || !label) return;
+  btn.classList.toggle('recording', recording);
+  label.textContent = recording ? 'Stop' : 'Record';
+  if(recorder.timer){ clearInterval(recorder.timer); recorder.timer = null; }
+  if(timeEl) timeEl.textContent = '';
+  if(recording){
+    recorder.timer = setInterval(() => {
+      if(timeEl) timeEl.textContent = fmtDuration(Date.now() - recorder.startTime);
+    }, 200);
+  }
+}
+
+function addRecording(blob){
+  recordSeq++;
+  const url = URL.createObjectURL(blob);
+  const durMs = recorder.startTime ? (Date.now() - recorder.startTime) : 0;
+  recordings.push({ id: 'rec-' + recordSeq, name: 'Record ' + recordSeq, url, dur: fmtDuration(durMs), date: Date.now() });
+  renderRecordings();
+  showToast('Recording saved');
+}
+
+function renderRecordings(){
+  const list = $('recordsList');
+  if(!list) return;
+  list.innerHTML = '';
+  if(recordings.length === 0){
+    list.innerHTML = '<div class="records-empty">No recordings yet</div>';
+    return;
+  }
+  recordings.forEach(r => {
+    const item = document.createElement('div');
+    item.className = 'record-item' + (editMode ? ' editing' : '') + (r.id === currentPlayId ? ' playing' : '');
+    item.dataset.id = r.id;
+    item.innerHTML = `
+      <button class="record-play" onclick="togglePlayRecording('${r.id}')" title="Play">&#9654;</button>
+      <span class="record-name">${r.name}</span>
+      <span class="record-dur">${r.dur}</span>
+      <button class="record-del" onclick="deleteRecording('${r.id}')" title="Delete">&#10005;</button>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function toggleEditMode(){
+  editMode = $('editRecordsChk').checked;
+  renderRecordings();
+}
+
+function deleteRecording(id){
+  const idx = recordings.findIndex(r => r.id === id);
+  if(idx === -1) return;
+  if(recordings[idx].url) URL.revokeObjectURL(recordings[idx].url);
+  if(currentPlayId === id) stopPlayback();
+  recordings.splice(idx, 1);
+  renderRecordings();
+}
+
+function stopPlayback(){
+  if(playEl){
+    try { playEl.pause(); } catch(e){}
+    try { playEl.src = ''; } catch(e){}
+    playEl = null;
+  }
+  currentPlayId = null;
+  updatePlayButtons();
+}
+
+async function togglePlayRecording(id){
+  if(currentPlayId === id){ stopPlayback(); return; }
+  await playRecording(id);
+}
+
+async function playRecording(id){
+  const rec = recordings.find(r => r.id === id);
+  if(!rec) return;
+  stopPlayback();
+  playEl = new Audio();
+  playEl.src = rec.url;
+  playEl.onended = () => { currentPlayId = null; updatePlayButtons(); };
+  playEl.onerror = () => { showToast('Playback error'); stopPlayback(); };
+  const outId = getCurrentOutputDeviceId();
+  if(outId && playEl.setSinkId){
+    try { await playEl.setSinkId(outId === 'default' ? '' : outId); }
+    catch(e){ console.warn('Playback setSinkId failed:', e); }
+  }
+  currentPlayId = id;
+  updatePlayButtons();
+  playEl.play().catch(e => { showToast('Playback error: ' + e.message); stopPlayback(); });
+}
+
+function updatePlayButtons(){
+  document.querySelectorAll('.record-item').forEach(item => {
+    const playing = item.dataset.id === currentPlayId;
+    item.classList.toggle('playing', playing);
+    const btn = item.querySelector('.record-play');
+    if(btn) btn.innerHTML = playing ? '&#9632;' : '&#9654;';
+  });
 }
 
 function openSettings(){ 
