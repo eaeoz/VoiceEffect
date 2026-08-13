@@ -213,7 +213,21 @@ display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
 .record-edit-label input{accent-color:var(--accent);cursor:pointer}
 .record-del-dup{background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-xs);font-size:9px;padding:1px 6px;cursor:pointer;transition:.2s;white-space:nowrap}
 .record-del-dup:hover{border-color:var(--accent);color:var(--accent)}
-.records-list{overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:2px}
+.records-columns{flex:1;min-height:0;display:flex;gap:8px}
+.records-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;min-height:0;
+background:var(--glass);border:1px dashed var(--border);border-radius:var(--radius-sm);padding:6px;
+transition:border-color .15s,background .15s}
+.records-col:hover{border-color:rgba(124,58,237,0.35)}
+.records-col.drop-target{background:rgba(124,58,237,0.1);border-color:var(--accent)}
+.records-col-head{font-size:8px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary);
+opacity:.6;padding:0 2px;flex-shrink:0}
+.records-divider{width:20px;flex-shrink:0;align-self:center;display:flex;align-items:center;justify-content:center;
+font-size:10px;color:var(--text-secondary);opacity:.5;cursor:crosshair;border-radius:4px;
+transition:.15s;background:transparent}
+.records-divider:hover{opacity:1;color:var(--accent);background:rgba(124,58,237,0.08)}
+.records-divider.drop-active{opacity:1;color:#fff;background:var(--accent);
+box-shadow:0 0 12px var(--accent-glow)}
+.records-list{overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;padding:2px}
 .records-empty{font-size:9px;color:var(--text-secondary);text-align:center;padding:10px 0;opacity:.6}
 .record-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--border);
 border-radius:var(--radius-xs);transition:.15s;animation:fadeIn .25s ease;cursor:pointer}
@@ -593,7 +607,17 @@ background-repeat:no-repeat;background-position:right 6px center}
       <div class="panel-header">
         <div class="panel-title">Records</div>
       </div>
-      <div class="records-list" id="recordsList"></div>
+      <div class="records-columns">
+        <div class="records-col" data-col="left">
+          <div class="records-col-head">Left</div>
+          <div class="records-list" id="recordsListLeft"></div>
+        </div>
+        <div class="records-divider" id="recordsDivider" title="Drag a record here to move it to the other column">&#8646;</div>
+        <div class="records-col" data-col="right">
+          <div class="records-col-head">Right</div>
+          <div class="records-list" id="recordsListRight"></div>
+        </div>
+      </div>
     </div>
 
     <div class="resize-handle" id="resizeHandle" title="Drag to resize"></div>
@@ -1913,13 +1937,13 @@ async function addRecording(blob){
   recordSeq++;
   const url = URL.createObjectURL(blob);
   const durMs = recorder.startTime ? (Date.now() - recorder.startTime) : 0;
-  const rec = { id: 'rec-' + recordSeq, name: 'Record ' + recordSeq, url, blob, dur: fmtDuration(durMs), date: Date.now() };
+  const rec = { id: 'rec-' + recordSeq, name: 'Record ' + recordSeq, url, blob, dur: fmtDuration(durMs), date: Date.now(), col: 'left' };
   recordings.push(rec);
   renderRecordings();
   if(api && api.saveRecording){
     try {
       const data = await blobToBase64(blob);
-      const res = await api.saveRecording({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: blob.type || 'audio/webm', data });
+      const res = await api.saveRecording({ id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, col: rec.col, type: blob.type || 'audio/webm', data });
       if(res && res.success === false){
         showToast('Recording not saved to disk: ' + (res.error || 'unknown error'));
         return;
@@ -1982,7 +2006,7 @@ async function backupRecordings(){
     let skipped = 0;
     for(const r of recordings){
       if(!r || !r.blob || r.blob.size === 0 || r.corrupt || !(await isLikelyAudioBlob(r.blob))){ skipped++; continue; }
-      items.push({ name: r.name, date: r.date, dur: r.dur, type: r.blob.type, data: await blobToBase64(r.blob) });
+      items.push({ name: r.name, date: r.date, dur: r.dur, col: r.col || 'left', type: r.blob.type, data: await blobToBase64(r.blob) });
     }
     if(items.length === 0){ showToast('No valid recordings to backup'); return; }
     const result = await api.backupRecordings(items);
@@ -2012,7 +2036,7 @@ async function loadRecordingsFromDisk(){
     for(const it of result.items){
       const blob = base64ToBlob(it.data, it.type);
       const url = URL.createObjectURL(blob);
-      recordings.push({ id: it.id, name: it.name, url, blob, corrupt: !(await isLikelyAudioBlob(blob)), dur: it.dur || '0:00', date: it.date });
+      recordings.push({ id: it.id, name: it.name, url, blob, corrupt: !(await isLikelyAudioBlob(blob)), dur: it.dur || '0:00', date: it.date, col: it.col || 'left' });
     }
     renderRecordings();
     const corruptCount = recordings.filter(r => r.corrupt).length;
@@ -2045,7 +2069,8 @@ async function restoreRecordings(){
         blob,
         corrupt: isCorrupt,
         dur: it.dur || '0:00',
-        date: it.date || Date.now()
+        date: it.date || Date.now(),
+        col: it.col || 'left'
       });
     }
     if(restored.length === 0){
@@ -2054,7 +2079,7 @@ async function restoreRecordings(){
     }
     const oldIds = recordings.map(r => r.id);
     const toSave = restored.filter(x => !x.corrupt).map(x => ({
-      id: x.id, name: x.name, date: x.date, dur: x.dur, type: x.it.type || 'audio/webm', data: x.it.data
+      id: x.id, name: x.name, date: x.date, dur: x.dur, col: x.col || 'left', type: x.it.type || 'audio/webm', data: x.it.data
     }));
     let saveFailed = false;
     if(toSave.length && api.saveRecording){
@@ -2068,7 +2093,7 @@ async function restoreRecordings(){
       await Promise.all(oldIds.map(id => api.deleteRecording(id).catch(() => {})));
     }
     recordings.forEach(r => { if(r && r.url) URL.revokeObjectURL(r.url); });
-    recordings = restored.map(x => ({ id: x.id, name: x.name, url: x.url, blob: x.blob, corrupt: x.corrupt, dur: x.dur, date: x.date }));
+    recordings = restored.map(x => ({ id: x.id, name: x.name, url: x.url, blob: x.blob, corrupt: x.corrupt, dur: x.dur, date: x.date, col: x.col || 'left' }));
     renderRecordings();
     showToast('Restored ' + restored.length + ' recording(s)' + (corrupt ? ' (' + corrupt + ' corrupted skipped)' : ''));
   } catch(e) {
@@ -2125,95 +2150,122 @@ function removeCorruptRecordings(){
   showToast('Removed ' + removed + ' corrupted recording(s)');
 }
 
+function buildRecordItem(r){
+  const item = document.createElement('div');
+  item.className = 'record-item' + (editMode ? ' editing' : '') + (r.id === currentPlayId ? ' playing' : '') + (r.corrupt ? ' corrupt' : '');
+  item.dataset.id = r.id;
+  item.dataset.col = r.col;
+  const nameHtml = editMode
+    ? `<span class="record-name" title="Click to rename" onclick="event.stopPropagation(); startRenameRecord('${r.id}')">${r.name}</span>`
+    : `<span class="record-name">${r.corrupt ? '&#9888; ' + r.name : r.name}</span>`;
+  item.innerHTML = `
+    <button class="record-play" title="Play">&#9654;</button>
+    ${nameHtml}
+    <span class="record-dur">${r.corrupt ? 'corrupt' : r.dur}</span>
+    <button class="record-del" title="Delete">&#10005;</button>
+  `;
+  const playBtn = item.querySelector('.record-play');
+  playBtn.addEventListener('click', e => { e.stopPropagation(); if(suppressClick) return; togglePlayRecording(r.id); });
+  const delBtn = item.querySelector('.record-del');
+  delBtn.addEventListener('click', e => { e.stopPropagation(); deleteRecording(r.id); });
+  item.addEventListener('click', () => {
+    if(editMode || suppressClick) return;
+    togglePlayRecording(r.id);
+  });
+  item.draggable = true;
+  item.addEventListener('dragstart', e => {
+    dragRecIndex = recordings.indexOf(r);
+    dragRecId = r.id;
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', r.id);
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 150);
+  });
+  item.addEventListener('dragend', () => {
+    item.classList.remove('dragging');
+    finishRecordDrag();
+  });
+  item.addEventListener('dragover', e => {
+    if(dragRecId === null || dragRecId === r.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.record-item').forEach(it => it.classList.remove('drop-before', 'drop-after'));
+    const rect = item.getBoundingClientRect();
+    dropBefore = e.clientY < rect.top + rect.height / 2;
+    dropTargetId = r.id;
+    item.classList.add(dropBefore ? 'drop-before' : 'drop-after');
+  });
+  item.addEventListener('dragleave', () => {
+    item.classList.remove('drop-before', 'drop-after');
+  });
+  item.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if(dragRecId === null || dragRecId === r.id){ finishRecordDrag(); return; }
+    moveRecordingTo(dragRecId, item.dataset.col, dropBefore ? r.id : null, dropBefore ? null : r.id);
+    finishRecordDrag();
+  });
+  return item;
+}
+
+function moveRecordingTo(id, col, beforeId, afterId){
+  const from = recordings.findIndex(x => x.id === id);
+  if(from === -1) return;
+  const [m] = recordings.splice(from, 1);
+  m.col = col;
+  let insertIdx = -1;
+  if(beforeId){
+    const bi = recordings.findIndex(x => x.id === beforeId);
+    if(bi !== -1) insertIdx = bi;
+  } else if(afterId){
+    const ai = recordings.findIndex(x => x.id === afterId);
+    if(ai !== -1) insertIdx = ai + 1;
+  }
+  if(insertIdx === -1){
+    let last = -1;
+    for(let i = 0; i < recordings.length; i++){
+      if(recordings[i].col === col) last = i;
+    }
+    insertIdx = last + 1;
+  }
+  recordings.splice(insertIdx, 0, m);
+  persistRecordOrder();
+}
+
+function finishRecordDrag(){
+  document.querySelectorAll('.record-item').forEach(it => it.classList.remove('drop-before', 'drop-after'));
+  document.querySelectorAll('.records-col').forEach(c => c.classList.remove('drop-target'));
+  const divider = $('recordsDivider');
+  if(divider) divider.classList.remove('drop-active');
+  dragRecIndex = null;
+  dragRecId = null;
+  dropTargetId = null;
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 150);
+}
+
 function renderRecordings(){
-  const list = $('recordsList');
-  if(!list) return;
-  list.innerHTML = '';
+  const left = $('recordsListLeft');
+  const right = $('recordsListRight');
+  if(!left || !right) return;
+  left.innerHTML = '';
+  right.innerHTML = '';
   if(recordings.length === 0){
-    list.innerHTML = '<div class="records-empty">No recordings yet</div>';
+    left.innerHTML = '<div class="records-empty">No recordings yet</div>';
     return;
   }
   recordings.forEach(r => {
-    const item = document.createElement('div');
-    item.className = 'record-item' + (editMode ? ' editing' : '') + (r.id === currentPlayId ? ' playing' : '') + (r.corrupt ? ' corrupt' : '');
-    item.dataset.id = r.id;
-    const nameHtml = editMode
-      ? `<span class="record-name" title="Click to rename" onclick="event.stopPropagation(); startRenameRecord('${r.id}')">${r.name}</span>`
-      : `<span class="record-name">${r.corrupt ? '&#9888; ' + r.name : r.name}</span>`;
-    item.innerHTML = `
-      <button class="record-play" title="Play">&#9654;</button>
-      ${nameHtml}
-      <span class="record-dur">${r.corrupt ? 'corrupt' : r.dur}</span>
-      <button class="record-del" title="Delete">&#10005;</button>
-    `;
-    const playBtn = item.querySelector('.record-play');
-    playBtn.addEventListener('click', e => { e.stopPropagation(); if(suppressClick) return; togglePlayRecording(r.id); });
-    const delBtn = item.querySelector('.record-del');
-    delBtn.addEventListener('click', e => { e.stopPropagation(); deleteRecording(r.id); });
-    item.addEventListener('click', () => {
-      if(editMode || suppressClick) return;
-      togglePlayRecording(r.id);
-    });
-    item.draggable = true;
-    item.addEventListener('dragstart', e => {
-      dragRecIndex = recordings.indexOf(r);
-      dragRecId = r.id;
-      item.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', r.id);
-      suppressClick = true;
-      setTimeout(() => { suppressClick = false; }, 150);
-    });
-    item.addEventListener('dragend', () => {
-      item.classList.remove('dragging');
-      document.querySelectorAll('.record-item').forEach(it => it.classList.remove('drop-before', 'drop-after'));
-      dragRecIndex = null;
-      dragRecId = null;
-      dropTargetId = null;
-    });
-    item.addEventListener('dragover', e => {
-      e.preventDefault();
-      if(dragRecId === null) return;
-      e.dataTransfer.dropEffect = 'move';
-      document.querySelectorAll('.record-item').forEach(it => it.classList.remove('drop-before', 'drop-after'));
-      const rect = item.getBoundingClientRect();
-      dropBefore = e.clientY < rect.top + rect.height / 2;
-      dropTargetId = r.id;
-      item.classList.add(dropBefore ? 'drop-before' : 'drop-after');
-    });
-    item.addEventListener('dragleave', () => {
-      item.classList.remove('drop-before', 'drop-after');
-    });
-    item.addEventListener('drop', e => {
-      e.preventDefault();
-      e.stopPropagation();
-      if(dragRecId === null) return;
-      const from = recordings.findIndex(x => x.id === dragRecId);
-      const to = recordings.findIndex(x => x.id === dropTargetId);
-      let moved = false;
-      if(from !== -1 && to !== -1 && from !== to){
-        let newIndex = dropBefore ? to : to + 1;
-        if(from < newIndex) newIndex--;
-        const [m] = recordings.splice(from, 1);
-        recordings.splice(newIndex, 0, m);
-        moved = true;
-      }
-      document.querySelectorAll('.record-item').forEach(it => it.classList.remove('drop-before', 'drop-after'));
-      dragRecId = null;
-      dropTargetId = null;
-      if(moved) persistRecordOrder();
-      else renderRecordings();
-      suppressClick = true;
-      setTimeout(() => { suppressClick = false; }, 150);
-    });
-    list.appendChild(item);
+    if(r.col === 'right') right.appendChild(buildRecordItem(r));
+    else left.appendChild(buildRecordItem(r));
   });
 }
 
 function persistRecordOrder(){
   renderRecordings();
   if(api && api.reorderRecordings){
-    api.reorderRecordings(recordings.map(x => x.id)).catch(e => console.error('Persist record order error:', e));
+    api.reorderRecordings(recordings.map(x => ({ id: x.id, col: x.col }))).catch(e => console.error('Persist record order error:', e));
   }
 }
 
@@ -2489,6 +2541,50 @@ function applySectionOrder(order){
   });
 }
 
+function setupRecordColumns(){
+  ['recordsColLeft', 'recordsColRight'].forEach(id => {
+    const col = $(id);
+    if(!col) return;
+    col.addEventListener('dragover', e => {
+      if(dragRecId === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drop-target');
+    });
+    col.addEventListener('dragleave', () => {
+      col.classList.remove('drop-target');
+    });
+    col.addEventListener('drop', e => {
+      if(dragRecId === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      moveRecordingTo(dragRecId, col.dataset.col, null, null);
+      finishRecordDrag();
+    });
+  });
+  const divider = $('recordsDivider');
+  if(divider){
+    divider.addEventListener('dragover', e => {
+      if(dragRecId === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      divider.classList.add('drop-active');
+    });
+    divider.addEventListener('dragleave', () => {
+      divider.classList.remove('drop-active');
+    });
+    divider.addEventListener('drop', e => {
+      if(dragRecId === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rec = recordings.find(x => x.id === dragRecId);
+      const targetCol = rec && rec.col === 'right' ? 'left' : 'right';
+      moveRecordingTo(dragRecId, targetCol, null, null);
+      finishRecordDrag();
+    });
+  }
+}
+
 function setupEventListeners(){
   document.addEventListener('keydown', e => {
     if(e.key === 'Escape'){
@@ -2498,31 +2594,7 @@ function setupEventListeners(){
   document.querySelectorAll('.modal-overlay').forEach(m => {
     m.addEventListener('click', e => { if(e.target === m) m.classList.remove('show'); });
   });
-  const recordsList = $('recordsList');
-  if(recordsList){
-    recordsList.addEventListener('dragover', e => {
-      if(dragRecId === null) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-    });
-    recordsList.addEventListener('drop', e => {
-      if(dragRecId === null) return;
-      e.preventDefault();
-      const from = recordings.findIndex(x => x.id === dragRecId);
-      let moved = false;
-      if(from !== -1 && recordings.length > 1){
-        const [m] = recordings.splice(from, 1);
-        recordings.push(m);
-        moved = true;
-      }
-      dragRecId = null;
-      dropTargetId = null;
-      if(moved) persistRecordOrder();
-      else renderRecordings();
-      suppressClick = true;
-      setTimeout(() => { suppressClick = false; }, 150);
-    });
-  }
+  setupRecordColumns();
   if(api){
     setInterval(async () => {
       try {

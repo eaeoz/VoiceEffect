@@ -745,7 +745,7 @@ function setupIPC() {
         const ext = extFromType(it.type);
         const fname = 'record_' + n + '.' + ext;
         files[fname] = { data: buf };
-        meta.push({ file: fname, name: it.name, date: it.date, dur: it.dur, type: it.type || 'audio/webm' });
+        meta.push({ file: fname, name: it.name, date: it.date, dur: it.dur, type: it.type || 'audio/webm', col: it.col || 'left' });
       });
       files['recordings.json'] = { data: Buffer.from(JSON.stringify(meta, null, 2), 'utf8') };
       const zip = createZip(files);
@@ -776,7 +776,7 @@ function setupIPC() {
       if (meta.length) {
         meta.forEach(m => {
           const buf = files[m.file];
-          if (buf && hasAudioMagic(buf)) items.push({ name: m.name, date: m.date, dur: m.dur, type: m.type || 'audio/webm', data: buf.toString('base64') });
+          if (buf && hasAudioMagic(buf)) items.push({ name: m.name, date: m.date, dur: m.dur, type: m.type || 'audio/webm', col: m.col || 'left', data: buf.toString('base64') });
           else if (buf) skipped++;
         });
       } else {
@@ -804,7 +804,7 @@ function setupIPC() {
       const fileName = rec.id + '.' + ext;
       const dataBuf = Buffer.from(rec.data, 'base64');
       fs.writeFileSync(path.join(dir, fileName), dataBuf);
-      const entry = { id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: rec.type || 'audio/webm', file: fileName };
+      const entry = { id: rec.id, name: rec.name, date: rec.date, dur: rec.dur, type: rec.type || 'audio/webm', file: fileName, col: rec.col || 'left' };
       const i = index.findIndex(x => x.id === rec.id);
       if (i === -1) index.push(entry);
       else index[i] = entry;
@@ -849,17 +849,22 @@ function setupIPC() {
     }
   });
 
-  ipcMain.handle('reorder-recordings', async (event, ids) => {
+  ipcMain.handle('reorder-recordings', async (event, items) => {
     try {
       const index = loadRecordingsIndex();
-      const order = Array.isArray(ids) ? ids : [];
+      const order = Array.isArray(items) ? items : [];
       const byId = new Map(index.map(e => [e.id, e]));
       const reordered = [];
-      for (const id of order) {
-        if (byId.has(id)) reordered.push(byId.get(id));
+      for (const item of order) {
+        const id = typeof item === 'string' ? item : item.id;
+        if (byId.has(id)) {
+          const entry = byId.get(id);
+          if (item && item.col) entry.col = item.col;
+          reordered.push(entry);
+        }
       }
       for (const entry of index) {
-        if (!order.includes(entry.id)) reordered.push(entry);
+        if (!order.some(o => (typeof o === 'string' ? o : o.id) === entry.id)) reordered.push(entry);
       }
       saveRecordingsIndex(reordered);
       return { success: true };
@@ -876,7 +881,7 @@ function setupIPC() {
         const filePath = path.join(getRecordingsDir(), entry.file);
         if (fs.existsSync(filePath)) {
           const buf = fs.readFileSync(filePath);
-          items.push({ id: entry.id, name: entry.name, date: entry.date, dur: entry.dur, type: entry.type, bytes: buf.length, data: buf.toString('base64') });
+          items.push({ id: entry.id, name: entry.name, date: entry.date, dur: entry.dur, type: entry.type, col: entry.col || 'left', bytes: buf.length, data: buf.toString('base64') });
         } else {
           log('WARN', 'Recording file missing for index entry: ' + entry.id + ' (' + entry.file + ')');
         }
