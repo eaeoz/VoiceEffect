@@ -126,17 +126,26 @@ border-radius:50%;background:var(--text-secondary);transition:.2s}
 .fx-toggle.on{border-color:var(--accent);background:rgba(124,58,237,0.3)}
 .fx-toggle.on::after{left:14px;background:var(--accent);box-shadow:0 0 6px var(--accent-glow)}
 .fx-icon{font-size:13px;width:20px;text-align:center;flex-shrink:0}
-.fx-name{font-size:10px;font-weight:600;color:var(--text-secondary);min-width:52px;flex-shrink:0}
+.fx-name{font-size:10px;font-weight:600;color:var(--text-secondary);flex:1;min-width:0;
+white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fx-row.active .fx-name{color:var(--accent)}
 .fx-slider{appearance:none;-webkit-appearance:none;width:100%;height:3px;background:var(--border);border-radius:2px;outline:none}
 .fx-slider::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;
 background:var(--accent);cursor:pointer;box-shadow:0 0 4px var(--accent-glow)}
 .fx-val{font-size:8px;color:var(--accent);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
 
-.side-panel{width:240px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.side-panel{width:240px;min-width:210px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
 .side-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-padding:12px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(20px);min-height:0;overflow:hidden}
-.side-card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary);margin-bottom:2px}
+padding:10px 12px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(20px);min-height:0;overflow:hidden}
+.side-card-head{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0}
+.side-card-grow{flex:1;min-height:0}
+.drag-grip{font-size:13px;line-height:1;cursor:grab;color:var(--text-secondary);opacity:.45;
+padding:2px 5px;border-radius:4px;user-select:none;transition:.15s;-webkit-user-drag:none}
+.drag-grip:hover{opacity:1;color:var(--accent);background:rgba(124,58,237,0.1)}
+.side-card.dragging{opacity:.45;border-color:var(--accent);border-style:dashed}
+.side-card.drop-before{border-top:2px solid var(--accent)}
+.side-card.drop-after{border-bottom:2px solid var(--accent)}
+.side-card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary)}
 
 .device-select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);
 background:var(--bg-secondary);color:var(--text-primary);font-size:11px;cursor:pointer;outline:none;
@@ -182,8 +191,6 @@ cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content
 .preset-add{width:100%;padding:6px;border:1px dashed var(--border);border-radius:var(--radius-xs);
 background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px;transition:.2s}
 .preset-add:hover{border-color:var(--accent);color:var(--accent)}
-
-.record-divider{border-top:1px solid var(--border);margin:8px 0 2px;padding-top:8px}
 .record-source-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;min-height:20px}
 .record-source-label{font-size:10px;color:var(--text-secondary);flex:1}
 .record-source-hint{font-size:10px;color:var(--text-secondary);opacity:0.7;margin-bottom:4px}
@@ -200,7 +207,7 @@ display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
 @keyframes recBlink{0%,100%{opacity:1}50%{opacity:.15}}
 .record-btn:not(.recording) .record-dot{background:var(--accent);animation:none}
 .record-time{font-size:10px;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums;min-width:32px;text-align:right}
-.record-edit-row{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:5px;min-height:16px}
+.record-edit-row{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:5px;min-height:16px;flex-wrap:wrap}
 .record-edit-label{font-size:10px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px;user-select:none}
 .record-edit-label:hover{color:var(--accent)}
 .record-edit-label input{accent-color:var(--accent);cursor:pointer}
@@ -592,16 +599,22 @@ background-repeat:no-repeat;background-position:right 6px center}
     <div class="resize-handle" id="resizeHandle" title="Drag to resize"></div>
 
     <div class="side-panel">
-      <div class="side-card">
-        <div class="side-card-title">Input Device</div>
+      <div class="side-card side-card-drag" data-section="input">
+        <div class="side-card-head">
+          <span class="side-card-title">Input Device</span>
+          <span class="drag-grip" title="Drag to reorder">&#9776;</span>
+        </div>
         <select class="device-select" id="inputDevice" onchange="changeInputDevice()"></select>
         <div class="volume-row">
           <div class="volume-header"><span class="volume-label">Mic Volume</span><span class="volume-val" id="inputVolVal">80%</span></div>
           <input type="range" class="volume-slider" id="inputVol" min="0" max="100" value="80" oninput="changeInputVolume()">
         </div>
       </div>
-      <div class="side-card">
-        <div class="side-card-title">Output Device</div>
+      <div class="side-card side-card-drag" data-section="output">
+        <div class="side-card-head">
+          <span class="side-card-title">Output Device</span>
+          <span class="drag-grip" title="Drag to reorder">&#9776;</span>
+        </div>
         <div class="adapter-row">
           <div class="adapter-toggle disabled" id="adapterToggle" onclick="toggleAdapter()" title="Virtual Audio Adapter"></div>
           <span class="adapter-label" id="adapterLabel">Virtual Output</span>
@@ -613,18 +626,25 @@ background-repeat:no-repeat;background-position:right 6px center}
           <input type="range" class="volume-slider" id="outputVol" min="0" max="100" value="80" oninput="changeOutputVolume()">
         </div>
       </div>
-      <div class="side-card" style="flex:1">
-        <div class="side-card-title">Profile</div>
-        <select class="device-select" id="profileSelect" onchange="onProfileSelectChange()" style="margin-bottom:8px">
+      <div class="side-card side-card-drag" data-section="profile">
+        <div class="side-card-head">
+          <span class="side-card-title">Profile</span>
+          <span class="drag-grip" title="Drag to reorder">&#9776;</span>
+        </div>
+        <select class="device-select" id="profileSelect" onchange="onProfileSelectChange()">
           <option value="">-- None --</option>
         </select>
         <div style="display:flex;gap:4px">
-          <input type="text" id="quickProfileName" placeholder="Profile name..." style="flex:1;padding:4px 8px;font-size:11px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-xs);outline:none">
+          <input type="text" id="quickProfileName" placeholder="Profile name..." style="flex:1;min-width:0;padding:4px 8px;font-size:11px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-xs);outline:none">
           <button class="panel-btn panel-btn-accent" onclick="quickSaveProfile()" style="white-space:nowrap" title="Save current settings">&#128190; Save</button>
         </div>
-        <button class="preset-add" onclick="deleteSelectedProfile()" style="margin-top:6px">Delete Selected</button>
-        <div class="record-divider"></div>
-        <div class="side-card-title">Records</div>
+        <button class="preset-add" onclick="deleteSelectedProfile()">Delete Selected</button>
+      </div>
+      <div class="side-card side-card-drag" data-section="records">
+        <div class="side-card-head">
+          <span class="side-card-title">Records</span>
+          <span class="drag-grip" title="Drag to reorder">&#9776;</span>
+        </div>
         <div class="record-source-row">
           <span class="record-source-label">Record Device</span>
           <div class="adapter-toggle" id="recordSourceToggle" onclick="toggleRecordSource()" title="Switch record source"></div>
@@ -649,9 +669,13 @@ background-repeat:no-repeat;background-position:right 6px center}
           <button class="record-del-dup" onclick="removeDuplicateRecordings()" title="Remove duplicate recordings">Remove Duplicates</button>
           <button class="record-del-dup" onclick="removeCorruptRecordings()" title="Remove corrupted recordings">Remove Corrupt</button>
         </div>
-        <div class="record-divider"></div>
-        <div class="side-card-title">Voice Effects</div>
-        <button class="panel-btn" onclick="disableAllEffects()" style="margin-bottom:6px;align-self:flex-start">Disable All</button>
+      </div>
+      <div class="side-card side-card-drag side-card-grow" data-section="effects">
+        <div class="side-card-head">
+          <span class="side-card-title">Voice Effects</span>
+          <span class="drag-grip" title="Drag to reorder">&#9776;</span>
+        </div>
+        <button class="panel-btn" onclick="disableAllEffects()" style="align-self:flex-start">Disable All</button>
         <div class="effects-scroll" id="effectsScroll"></div>
       </div>
     </div>
@@ -809,6 +833,7 @@ async function init(){
   await loadProfileSelect(true);
   setupEventListeners();
   setupResizeHandle();
+  setupSectionDrag();
   await loadRecordingsFromDisk();
   checkAdapterStatus();
   showToast('VoiceEffect ready');
@@ -1460,6 +1485,7 @@ async function loadSettings(){
       const w = parseInt(s.sidePanelWidth);
       if(w >= 180 && w <= 1200) sidePanel.style.width = w + 'px';
     }
+    applySectionOrder(s.sidePanelOrder);
   } catch(e) { console.error('Settings load error:', e); }
 }
 
@@ -2362,7 +2388,7 @@ function setupResizeHandle(){
   const side = document.querySelector('.side-panel');
   const handle = $('resizeHandle');
   if(!mid || !side || !handle) return;
-  const minSide = 180, minLeft = 320;
+  const minSide = 210, minLeft = 300;
   let dragging = false;
   handle.addEventListener('mousedown', e => {
     dragging = true;
@@ -2391,11 +2417,75 @@ function setupResizeHandle(){
       if(api) api.saveSettings(state.settings);
     }
   });
-  window.addEventListener('resize', () => {
+  const clampWidth = () => {
     const rect = mid.getBoundingClientRect();
     const w = parseFloat(side.style.width) || 240;
     const maxSide = Math.max(minSide, rect.width - minLeft);
     if(w > maxSide) side.style.width = maxSide + 'px';
+  };
+  window.addEventListener('resize', clampWidth);
+  clampWidth();
+}
+
+function setupSectionDrag(){
+  const panel = document.querySelector('.side-panel');
+  if(!panel) return;
+  let dragCard = null;
+  panel.querySelectorAll('.side-card[data-section]').forEach(card => {
+    const grip = card.querySelector('.drag-grip');
+    if(grip){
+      grip.addEventListener('mousedown', () => { card.setAttribute('draggable', 'true'); });
+      grip.addEventListener('mouseup', () => { card.setAttribute('draggable', 'false'); });
+    }
+    card.addEventListener('dragstart', e => {
+      dragCard = card;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.section);
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      card.setAttribute('draggable', 'false');
+      panel.querySelectorAll('.side-card').forEach(c => c.classList.remove('drop-before', 'drop-after'));
+      dragCard = null;
+    });
+    card.addEventListener('dragover', e => {
+      if(!dragCard || dragCard === card) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      panel.querySelectorAll('.side-card').forEach(c => c.classList.remove('drop-before', 'drop-after'));
+      const rect = card.getBoundingClientRect();
+      card.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drop-before' : 'drop-after');
+    });
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('drop-before', 'drop-after');
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if(!dragCard || dragCard === card) return;
+      const after = card.classList.contains('drop-after');
+      panel.insertBefore(dragCard, after ? card.nextSibling : card);
+      card.classList.remove('drop-before', 'drop-after');
+      persistSectionOrder();
+    });
+  });
+}
+
+function persistSectionOrder(){
+  const panel = document.querySelector('.side-panel');
+  if(!panel || !state.settings) return;
+  const order = Array.from(panel.querySelectorAll('.side-card[data-section]')).map(c => c.dataset.section);
+  state.settings.sidePanelOrder = order;
+  if(api) api.saveSettings(state.settings);
+}
+
+function applySectionOrder(order){
+  const panel = document.querySelector('.side-panel');
+  if(!panel || !Array.isArray(order)) return;
+  order.forEach(section => {
+    const card = panel.querySelector('.side-card[data-section="' + section + '"]');
+    if(card) panel.appendChild(card);
   });
 }
 
