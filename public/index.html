@@ -93,7 +93,15 @@ border-radius:var(--radius);padding:10px 16px;backdrop-filter:blur(20px);flex-sh
 .stat-value.accent{color:var(--accent)}
 .stat-value.accent2{color:var(--accent2)}
 
-.mid-section{display:flex;gap:10px;flex:1;min-height:0;min-width:0;overflow:hidden}
+.mid-section{display:flex;gap:10px;flex:1;min-height:0;min-width:0;overflow:hidden;position:relative}
+.half-moon-btn{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:20;
+  width:28px;height:28px;border-radius:50%;border:1px solid var(--accent);background:var(--bg-card);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,box-shadow .2s;
+  backdrop-filter:blur(20px);padding:0}
+.half-moon-btn:hover{background:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
+.half-moon-btn svg{width:15px;height:15px;stroke:var(--accent);transition:transform .3s ease,stroke .2s}
+.half-moon-btn:hover svg{stroke:#fff}
+.half-moon-btn.swapped svg{transform:rotate(180deg)}
 .resize-handle{width:6px;margin:0 -8px;cursor:col-resize;flex-shrink:0;border-radius:3px;
 transition:background .15s;background:transparent}
 .resize-handle:hover{background:var(--accent)}
@@ -609,6 +617,9 @@ background-repeat:no-repeat;background-position:right 6px center}
   </div>
 
   <div class="mid-section">
+    <button class="half-moon-btn" id="swapSectionsBtn" onclick="swapSections()" title="Swap left and right panels">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
     <div class="effects-panel">
       <div class="panel-header">
         <div class="panel-title">Records</div>
@@ -1549,6 +1560,8 @@ async function loadSettings(){
       if(w >= 180 && w <= 1200) sidePanel.style.width = w + 'px';
     }
     applySectionOrder(s.sidePanelOrder);
+    sectionsSwapped = !!s.sectionsSwapped;
+    applySectionsSwap();
     if(s.recordsLeftWidth){
       const lc = $('recordsListLeft') ? $('recordsListLeft').closest('.records-col') : null;
       if(lc){
@@ -2499,7 +2512,12 @@ function setupResizeHandle(){
     if(!dragging) return;
     const avail = mid.clientWidth;
     const maxSide = Math.max(minSide, avail - minLeft);
-    let w = mid.getBoundingClientRect().right - e.clientX;
+    let w;
+    if(sectionsSwapped){
+      w = e.clientX - mid.getBoundingClientRect().left;
+    } else {
+      w = mid.getBoundingClientRect().right - e.clientX;
+    }
     w = Math.max(minSide, Math.min(w, maxSide));
     side.style.width = w + 'px';
   });
@@ -2523,6 +2541,28 @@ function setupResizeHandle(){
   };
   window.addEventListener('resize', clampWidth);
   clampWidth();
+}
+
+let sectionsSwapped = false;
+
+function swapSections(){
+  sectionsSwapped = !sectionsSwapped;
+  applySectionsSwap();
+  if(state.settings){
+    state.settings.sectionsSwapped = sectionsSwapped;
+    if(api) api.saveSettings(state.settings);
+  }
+}
+
+function applySectionsSwap(){
+  const effects = document.querySelector('.effects-panel');
+  const side = document.querySelector('.side-panel');
+  const handle = $('resizeHandle');
+  const btn = $('swapSectionsBtn');
+  if(btn) btn.classList.toggle('swapped', sectionsSwapped);
+  if(effects) effects.style.order = sectionsSwapped ? '2' : '';
+  if(handle) handle.style.order = sectionsSwapped ? '1' : '';
+  if(side) side.style.order = sectionsSwapped ? '0' : '';
 }
 
 function setupRecordsResize(){
