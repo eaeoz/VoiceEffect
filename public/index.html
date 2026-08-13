@@ -94,6 +94,10 @@ border-radius:var(--radius);padding:10px 16px;backdrop-filter:blur(20px);flex-sh
 .stat-value.accent2{color:var(--accent2)}
 
 .mid-section{display:flex;gap:10px;flex:1;min-height:0}
+.resize-handle{width:6px;margin:0 -8px;cursor:col-resize;flex-shrink:0;border-radius:3px;
+transition:background .15s;background:transparent}
+.resize-handle:hover{background:var(--accent)}
+.resize-handle.dragging{background:var(--accent)}
 .effects-panel{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
 padding:12px;display:flex;flex-direction:column;backdrop-filter:blur(20px);min-height:0}
 .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0}
@@ -110,9 +114,11 @@ border-radius:var(--radius-xs);font-size:10px;cursor:pointer;transition:.2s}
 .fx-group{margin-bottom:6px}
 .fx-group-header{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;
 color:var(--accent);padding:4px 6px 2px;border-bottom:1px solid var(--border);margin-bottom:2px}
-.fx-row{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:var(--radius-xs);
-transition:background .15s;min-height:28px}
+.fx-row{display:flex;flex-direction:column;gap:2px;padding:4px 6px;border-radius:var(--radius-xs);
+transition:background .15s;min-height:0}
 .fx-row:hover{background:rgba(124,58,237,0.06)}
+.fx-line1{display:flex;align-items:center;gap:6px}
+.fx-line2{display:flex;flex-direction:column;gap:1px;padding-left:26px}
 .fx-toggle{width:28px;height:16px;border-radius:8px;border:1.5px solid var(--border);
 background:var(--bg-secondary);cursor:pointer;position:relative;flex-shrink:0;transition:.2s}
 .fx-toggle::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;
@@ -122,10 +128,10 @@ border-radius:50%;background:var(--text-secondary);transition:.2s}
 .fx-icon{font-size:13px;width:20px;text-align:center;flex-shrink:0}
 .fx-name{font-size:10px;font-weight:600;color:var(--text-secondary);min-width:52px;flex-shrink:0}
 .fx-row.active .fx-name{color:var(--accent)}
-.fx-slider{appearance:none;-webkit-appearance:none;flex:1;height:3px;background:var(--border);border-radius:2px;outline:none;min-width:0}
+.fx-slider{appearance:none;-webkit-appearance:none;width:100%;height:3px;background:var(--border);border-radius:2px;outline:none}
 .fx-slider::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;
 background:var(--accent);cursor:pointer;box-shadow:0 0 4px var(--accent-glow)}
-.fx-val{font-size:9px;color:var(--accent);font-weight:600;width:26px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
+.fx-val{font-size:8px;color:var(--accent);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
 
 .side-panel{width:240px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
 .side-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
@@ -578,13 +584,12 @@ background-repeat:no-repeat;background-position:right 6px center}
   <div class="mid-section">
     <div class="effects-panel">
       <div class="panel-header">
-        <div class="panel-title">Voice Effects</div>
-        <div class="panel-actions">
-          <button class="panel-btn" onclick="disableAllEffects()">Disable All</button>
-        </div>
+        <div class="panel-title">Records</div>
       </div>
-      <div class="effects-scroll" id="effectsScroll"></div>
+      <div class="records-list" id="recordsList"></div>
     </div>
+
+    <div class="resize-handle" id="resizeHandle" title="Drag to resize"></div>
 
     <div class="side-panel">
       <div class="side-card">
@@ -644,7 +649,10 @@ background-repeat:no-repeat;background-position:right 6px center}
           <button class="record-del-dup" onclick="removeDuplicateRecordings()" title="Remove duplicate recordings">Remove Duplicates</button>
           <button class="record-del-dup" onclick="removeCorruptRecordings()" title="Remove corrupted recordings">Remove Corrupt</button>
         </div>
-        <div class="records-list" id="recordsList"></div>
+        <div class="record-divider"></div>
+        <div class="side-card-title">Voice Effects</div>
+        <button class="panel-btn" onclick="disableAllEffects()" style="margin-bottom:6px;align-self:flex-start">Disable All</button>
+        <div class="effects-scroll" id="effectsScroll"></div>
       </div>
     </div>
   </div>
@@ -800,6 +808,7 @@ async function init(){
   updateAdapterUI();
   await loadProfileSelect(true);
   setupEventListeners();
+  setupResizeHandle();
   await loadRecordingsFromDisk();
   checkAdapterStatus();
   showToast('VoiceEffect ready');
@@ -1031,12 +1040,15 @@ function renderEffectsGrid(){
       row.className = 'fx-row';
       row.id = 'fx-' + fx.id;
       row.innerHTML = `
-        <div class="fx-toggle" onclick="toggleEffect('${fx.id}')"></div>
-        <div class="fx-icon">${fx.icon}</div>
-        <div class="fx-name">${fx.name}</div>
-        <input type="range" class="fx-slider" min="0" max="100" value="50"
-          oninput="setEffectValue('${fx.id}',this.value);this.nextElementSibling.textContent=this.value+'%'">
-        <div class="fx-val">50%</div>
+        <div class="fx-line1">
+          <div class="fx-toggle" onclick="toggleEffect('${fx.id}')"></div>
+          <div class="fx-icon">${fx.icon}</div>
+          <div class="fx-name">${fx.name}</div>
+        </div>
+        <div class="fx-line2">
+          <input type="range" class="fx-slider" min="0" max="100" value="50" oninput="setEffectValue('${fx.id}',this.value)">
+          <div class="fx-val">50%</div>
+        </div>
       `;
       groupEl.appendChild(row);
     });
@@ -1442,6 +1454,11 @@ async function loadSettings(){
     if(s.activeVideoEffect && $('videoEffectSelect')) {
       videoState.effect = s.activeVideoEffect;
       $('videoEffectSelect').value = s.activeVideoEffect;
+    }
+    const sidePanel = document.querySelector('.side-panel');
+    if(sidePanel && s.sidePanelWidth){
+      const w = parseInt(s.sidePanelWidth);
+      if(w >= 180 && w <= 1200) sidePanel.style.width = w + 'px';
     }
   } catch(e) { console.error('Settings load error:', e); }
 }
@@ -2338,6 +2355,48 @@ function showToast(msg){
   t.classList.add('show');
   clearTimeout(t._timeout);
   t._timeout = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function setupResizeHandle(){
+  const mid = document.querySelector('.mid-section');
+  const side = document.querySelector('.side-panel');
+  const handle = $('resizeHandle');
+  if(!mid || !side || !handle) return;
+  const minSide = 180, minLeft = 320;
+  let dragging = false;
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if(!dragging) return;
+    const rect = mid.getBoundingClientRect();
+    const maxSide = Math.max(minSide, rect.width - minLeft);
+    let w = rect.right - e.clientX;
+    w = Math.max(minSide, Math.min(w, maxSide));
+    side.style.width = w + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if(!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    const w = Math.round(parseFloat(side.style.width) || 240);
+    if(state.settings){
+      state.settings.sidePanelWidth = w;
+      if(api) api.saveSettings(state.settings);
+    }
+  });
+  window.addEventListener('resize', () => {
+    const rect = mid.getBoundingClientRect();
+    const w = parseFloat(side.style.width) || 240;
+    const maxSide = Math.max(minSide, rect.width - minLeft);
+    if(w > maxSide) side.style.width = maxSide + 'px';
+  });
 }
 
 function setupEventListeners(){
