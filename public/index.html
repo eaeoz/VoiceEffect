@@ -94,14 +94,14 @@ border-radius:var(--radius);padding:10px 16px;backdrop-filter:blur(20px);flex-sh
 .stat-value.accent2{color:var(--accent2)}
 
 .mid-section{display:flex;gap:10px;flex:1;min-height:0;min-width:0;overflow:hidden;position:relative}
-.half-moon-btn{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:20;
-  width:28px;height:28px;border-radius:50%;border:1px solid var(--accent);background:var(--bg-card);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,box-shadow .2s;
-  backdrop-filter:blur(20px);padding:0}
-.half-moon-btn:hover{background:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
-.half-moon-btn svg{width:15px;height:15px;stroke:var(--accent);transition:transform .3s ease,stroke .2s}
-.half-moon-btn:hover svg{stroke:#fff}
-.half-moon-btn.swapped svg{transform:rotate(180deg)}
+.swap-btn{margin-left:auto;flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid var(--accent);
+  background:var(--bg-card);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,box-shadow .2s;backdrop-filter:blur(20px);padding:0}
+.swap-btn:hover{background:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
+.swap-btn svg{width:14px;height:14px;stroke:var(--accent);transition:stroke .2s}
+.swap-btn:hover svg{stroke:#fff}
+.swap-btn.swapped{background:var(--accent)}
+.swap-btn.swapped svg{stroke:#fff}
 .resize-handle{width:6px;margin:0 -8px;cursor:col-resize;flex-shrink:0;border-radius:3px;
 transition:background .15s;background:transparent}
 .resize-handle:hover{background:var(--accent)}
@@ -614,12 +614,12 @@ background-repeat:no-repeat;background-position:right 6px center}
     <div class="stat"><div class="stat-label">Processed</div><div class="stat-value" id="statProcessed">0</div></div>
     <div class="stat"><div class="stat-label">Uptime</div><div class="stat-value" id="statUptime">0:00</div></div>
     <div class="stat"><div class="stat-label">Sample Rate</div><div class="stat-value" id="statSampleRate">44100</div></div>
+    <button class="swap-btn" id="swapSectionsBtn" onclick="swapSections()" title="Swap left and right panels">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+    </button>
   </div>
 
   <div class="mid-section">
-    <button class="half-moon-btn" id="swapSectionsBtn" onclick="swapSections()" title="Swap left and right panels">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-    </button>
     <div class="effects-panel">
       <div class="panel-header">
         <div class="panel-title">Records</div>
