@@ -191,6 +191,12 @@ cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content
 .preset-add{width:100%;padding:6px;border:1px dashed var(--border);border-radius:var(--radius-xs);
 background:transparent;color:var(--text-secondary);cursor:pointer;font-size:11px;transition:.2s}
 .preset-add:hover{border-color:var(--accent);color:var(--accent)}
+.mute-btn{flex-shrink:0;width:30px;height:30px;border:1px solid var(--border);background:var(--bg-secondary);
+border-radius:var(--radius-xs);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;
+justify-content:center;transition:.2s;padding:0}
+.mute-btn:hover{border-color:var(--accent);color:var(--accent)}
+.mute-btn.on{background:rgba(239,68,68,0.15);border-color:var(--danger);color:var(--danger)}
+.mute-btn.on:hover{border-color:var(--danger);color:var(--danger);box-shadow:0 0 10px rgba(239,68,68,0.3)}
 .record-source-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;min-height:20px}
 .record-source-label{font-size:10px;color:var(--text-secondary);flex:1}
 .record-source-hint{font-size:10px;color:var(--text-secondary);opacity:0.7;margin-bottom:4px}
@@ -655,9 +661,15 @@ background-repeat:no-repeat;background-position:right 6px center}
           <span class="side-card-title">Profile</span>
           <span class="drag-grip" title="Drag to reorder">&#9776;</span>
         </div>
-        <select class="device-select" id="profileSelect" onchange="onProfileSelectChange()">
-          <option value="">-- None --</option>
-        </select>
+        <div style="display:flex;gap:4px">
+          <select class="device-select" id="profileSelect" onchange="onProfileSelectChange()" style="flex:1;min-width:0">
+            <option value="">-- None --</option>
+          </select>
+          <button class="mute-btn" id="muteBtn" onclick="toggleMute()" title="Mute output">
+            <svg class="mute-icon-sound" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            <svg class="mute-icon-off" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          </button>
+        </div>
         <div style="display:flex;gap:4px">
           <input type="text" id="quickProfileName" placeholder="Profile name..." style="flex:1;min-width:0;padding:4px 8px;font-size:11px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-xs);outline:none">
           <button class="panel-btn panel-btn-accent" onclick="quickSaveProfile()" style="white-space:nowrap" title="Save current settings">&#128190; Save</button>
@@ -824,7 +836,7 @@ const EFFECTS = [
 ];
 
 let state = {
-  running: false, theme: 'dark', settings: {},
+  running: false, theme: 'dark', settings: {}, outputMuted: false,
   activeEffects: {}, adapterInstalled: false, adapterEnabled: false, adapterInstalling: false, adapterUninstalling: false
 };
 
@@ -1238,9 +1250,33 @@ function changeInputVolume(){
 function changeOutputVolume(){
   const v = $('outputVol').value;
   $('outputVolVal').textContent = v + '%';
-  if(outputGain) outputGain.gain.value = v / 100;
+  if(outputGain) outputGain.gain.value = state.outputMuted ? 0 : v / 100;
   if(api) api.setOutputVolume(parseInt(v));
   if(state.settings){ state.settings.outputVolume = parseInt(v); if(api) api.saveSettings(state.settings); }
+}
+
+function toggleMute(){
+  state.outputMuted = !state.outputMuted;
+  applyMute();
+  if(state.settings){ state.settings.outputMuted = state.outputMuted; if(api) api.saveSettings(state.settings); }
+}
+
+function applyMute(){
+  const v = parseInt($('outputVol')?.value) || 80;
+  if(outputGain) outputGain.gain.value = state.outputMuted ? 0 : v / 100;
+  if(api) api.setOutputVolume(state.outputMuted ? 0 : v);
+  updateMuteUI();
+}
+
+function updateMuteUI(){
+  const btn = $('muteBtn');
+  if(!btn) return;
+  btn.classList.toggle('on', !!state.outputMuted);
+  btn.title = state.outputMuted ? 'Unmute output' : 'Mute output';
+  const s = btn.querySelector('.mute-icon-sound');
+  const o = btn.querySelector('.mute-icon-off');
+  if(s) s.style.display = state.outputMuted ? 'none' : 'block';
+  if(o) o.style.display = state.outputMuted ? 'block' : 'none';
 }
 
 async function togglePower(){
@@ -1373,7 +1409,7 @@ async function startAudio(){
     inputGain = audioCtx.createGain();
     inputGain.gain.value = ($('inputVol')?.value || 80) / 100;
     outputGain = audioCtx.createGain();
-    outputGain.gain.value = ($('outputVol')?.value || 80) / 100;
+    outputGain.gain.value = (state.outputMuted ? 0 : ($('outputVol')?.value || 80)) / 100;
     analyserIn = audioCtx.createAnalyser();
     analyserIn.fftSize = 256;
     analyserOut = audioCtx.createAnalyser();
@@ -1462,6 +1498,8 @@ async function loadSettings(){
     activeProfileId = s.activeProfileId || null;
     if($('inputVol')){ $('inputVol').value = s.inputVolume||80; $('inputVolVal').textContent=(s.inputVolume||80)+'%'; }
     if($('outputVol')){ $('outputVol').value = s.outputVolume||80; $('outputVolVal').textContent=(s.outputVolume||80)+'%'; }
+    state.outputMuted = s.outputMuted === true;
+    updateMuteUI();
     if(s.inputDevice != null) $('inputDevice').value = s.inputDevice;
     if(s.outputDevice != null) $('outputDevice').value = s.outputDevice;
     if($('setMinTray')) $('setMinTray').checked = s.minimizeToTray !== false;
