@@ -93,12 +93,12 @@ border-radius:var(--radius);padding:10px 16px;backdrop-filter:blur(20px);flex-sh
 .stat-value.accent{color:var(--accent)}
 .stat-value.accent2{color:var(--accent2)}
 
-.mid-section{display:flex;gap:10px;flex:1;min-height:0}
+.mid-section{display:flex;gap:10px;flex:1;min-height:0;min-width:0;overflow:hidden}
 .resize-handle{width:6px;margin:0 -8px;cursor:col-resize;flex-shrink:0;border-radius:3px;
 transition:background .15s;background:transparent}
 .resize-handle:hover{background:var(--accent)}
 .resize-handle.dragging{background:var(--accent)}
-.effects-panel{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+.effects-panel{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
 padding:12px;display:flex;flex-direction:column;backdrop-filter:blur(20px);min-height:0}
 .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0}
 .panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary)}
@@ -134,7 +134,7 @@ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 background:var(--accent);cursor:pointer;box-shadow:0 0 4px var(--accent-glow)}
 .fx-val{font-size:8px;color:var(--accent);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
 
-.side-panel{width:240px;min-width:210px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.side-panel{width:240px;min-width:210px;max-width:1200px;display:flex;flex-direction:column;gap:8px;flex-shrink:0;overflow:hidden}
 .side-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
 padding:10px 12px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(20px);min-height:0;overflow:hidden}
 .side-card-head{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0}
@@ -227,10 +227,10 @@ transition:border-color .15s,background .15s}
 .records-col.drop-target{background:rgba(124,58,237,0.1);border-color:var(--accent)}
 .records-col-head{font-size:8px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-secondary);
 opacity:.6;padding:0 2px;flex-shrink:0}
-.records-divider{width:20px;flex-shrink:0;align-self:center;display:flex;align-items:center;justify-content:center;
-font-size:10px;color:var(--text-secondary);opacity:.5;cursor:crosshair;border-radius:4px;
+.records-divider{width:24px;flex-shrink:0;align-self:stretch;display:flex;align-items:center;justify-content:center;
+font-size:10px;color:var(--text-secondary);opacity:.5;cursor:col-resize;border-radius:4px;
 transition:.15s;background:transparent}
-.records-divider:hover{opacity:1;color:var(--accent);background:rgba(124,58,237,0.08)}
+.records-divider:hover,.records-divider.resizing{opacity:1;color:var(--accent);background:rgba(124,58,237,0.08)}
 .records-divider.drop-active{opacity:1;color:#fff;background:var(--accent);
 box-shadow:0 0 12px var(--accent-glow)}
 .records-list{overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;padding:2px}
@@ -618,7 +618,7 @@ background-repeat:no-repeat;background-position:right 6px center}
           <div class="records-col-head">Left</div>
           <div class="records-list" id="recordsListLeft"></div>
         </div>
-        <div class="records-divider" id="recordsDivider" title="Drag a record here to move it to the other column">&#8646;</div>
+        <div class="records-divider" id="recordsDivider" title="Drag to resize the record lists (drop a record here to move it to the other column)">&#8646;</div>
         <div class="records-col" data-col="right">
           <div class="records-col-head">Right</div>
           <div class="records-list" id="recordsListRight"></div>
@@ -869,6 +869,7 @@ async function init(){
   await loadProfileSelect(true);
   setupEventListeners();
   setupResizeHandle();
+  setupRecordsResize();
   setupSectionDrag();
   await loadRecordingsFromDisk();
   checkAdapterStatus();
@@ -1548,6 +1549,13 @@ async function loadSettings(){
       if(w >= 180 && w <= 1200) sidePanel.style.width = w + 'px';
     }
     applySectionOrder(s.sidePanelOrder);
+    if(s.recordsLeftWidth){
+      const lc = $('recordsListLeft') ? $('recordsListLeft').closest('.records-col') : null;
+      if(lc){
+        const w = parseInt(s.recordsLeftWidth);
+        if(w >= 80 && w <= 1200) lc.style.flex = '0 0 ' + w + 'px';
+      }
+    }
   } catch(e) { console.error('Settings load error:', e); }
 }
 
@@ -2478,7 +2486,7 @@ function setupResizeHandle(){
   const side = document.querySelector('.side-panel');
   const handle = $('resizeHandle');
   if(!mid || !side || !handle) return;
-  const minSide = 210, minLeft = 300;
+  const minSide = 210, minLeft = 320;
   let dragging = false;
   handle.addEventListener('mousedown', e => {
     dragging = true;
@@ -2489,9 +2497,9 @@ function setupResizeHandle(){
   });
   document.addEventListener('mousemove', e => {
     if(!dragging) return;
-    const rect = mid.getBoundingClientRect();
-    const maxSide = Math.max(minSide, rect.width - minLeft);
-    let w = rect.right - e.clientX;
+    const avail = mid.clientWidth;
+    const maxSide = Math.max(minSide, avail - minLeft);
+    let w = mid.getBoundingClientRect().right - e.clientX;
     w = Math.max(minSide, Math.min(w, maxSide));
     side.style.width = w + 'px';
   });
@@ -2508,13 +2516,53 @@ function setupResizeHandle(){
     }
   });
   const clampWidth = () => {
-    const rect = mid.getBoundingClientRect();
-    const w = parseFloat(side.style.width) || 240;
-    const maxSide = Math.max(minSide, rect.width - minLeft);
-    if(w > maxSide) side.style.width = maxSide + 'px';
+    const avail = mid.clientWidth;
+    const maxSide = Math.max(minSide, avail - minLeft);
+    const w = Math.max(minSide, Math.min(parseFloat(side.style.width) || 240, maxSide));
+    side.style.width = w + 'px';
   };
   window.addEventListener('resize', clampWidth);
   clampWidth();
+}
+
+function setupRecordsResize(){
+  const divider = $('recordsDivider');
+  const colsWrap = document.querySelector('.records-columns');
+  if(!divider || !colsWrap) return;
+  const leftCol = colsWrap.querySelector('.records-col[data-col="left"]');
+  const rightCol = colsWrap.querySelector('.records-col[data-col="right"]');
+  if(!leftCol || !rightCol) return;
+  let resizing = false, startX = 0, startW = 0;
+  divider.addEventListener('mousedown', e => {
+    if(dragRecId !== null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    resizing = true;
+    startX = e.clientX;
+    startW = leftCol.getBoundingClientRect().width;
+    divider.classList.add('resizing');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', e => {
+    if(!resizing) return;
+    const total = colsWrap.clientWidth;
+    const maxW = Math.max(80, total - 80 - divider.offsetWidth - 8);
+    let w = Math.max(80, Math.min(startW + (e.clientX - startX), maxW));
+    leftCol.style.flex = '0 0 ' + w + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if(!resizing) return;
+    resizing = false;
+    divider.classList.remove('resizing');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    const w = Math.round(leftCol.getBoundingClientRect().width);
+    if(state.settings){
+      state.settings.recordsLeftWidth = w;
+      if(api) api.saveSettings(state.settings);
+    }
+  });
 }
 
 function setupSectionDrag(){
@@ -2580,9 +2628,7 @@ function applySectionOrder(order){
 }
 
 function setupRecordColumns(){
-  ['recordsColLeft', 'recordsColRight'].forEach(id => {
-    const col = $(id);
-    if(!col) return;
+  document.querySelectorAll('.records-col').forEach(col => {
     col.addEventListener('dragover', e => {
       if(dragRecId === null) return;
       e.preventDefault();
